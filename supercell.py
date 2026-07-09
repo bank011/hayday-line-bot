@@ -4,7 +4,7 @@ from bs4 import BeautifulSoup
 URL = "https://supercell.com/en/news/announcement/hayday/page/1/"
 
 
-def get_news():
+def get_news_list():
 
     headers = {
         "User-Agent": "Mozilla/5.0"
@@ -20,11 +20,13 @@ def get_news():
 
     soup = BeautifulSoup(r.text, "html.parser")
 
+    news = []
+
     seen = set()
 
     for a in soup.find_all("a", href=True):
 
-        href = a["href"]
+        href = a.get("href", "")
 
         if "/news/" not in href:
             continue
@@ -42,11 +44,11 @@ def get_news():
         if len(title) < 8:
             continue
 
-        return {
+        news.append({
             "id": href,
             "title": title,
             "url": href,
             "source": "Supercell"
-        }
+        })
 
-    return None
+    return news
