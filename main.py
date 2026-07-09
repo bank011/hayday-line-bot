@@ -42,8 +42,11 @@ headers = {
     "Content-Type": "application/json"
 }
 
-requests.post(
+res = requests.post(
     "https://api.line.me/v2/bot/message/push",
     headers=headers,
     json=message
 )
+
+print(res.status_code)
+print(res.text)
