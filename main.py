@@ -22,7 +22,7 @@ link = None
 for a in soup.find_all("a", href=True):
     href = a["href"]
 
-    if "/news/" in href:
+    if "/en/news/" in href or "/news/" in href:
         text = a.get_text(strip=True)
 
         if len(text) > 5:
@@ -33,7 +33,6 @@ for a in soup.find_all("a", href=True):
             else:
                 link = href
             break
-
 if not title:
     raise Exception("News not found")
 
