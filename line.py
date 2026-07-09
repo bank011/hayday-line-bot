@@ -18,7 +18,7 @@ def send_message(text):
         "messages": [
             {
                 "type": "text",
-                "text": text
+                "text": text[:4900]
             }
         ]
     }
@@ -31,9 +31,8 @@ def send_message(text):
     )
 
     print("=" * 50)
-    print("LINE API")
-    print("Status :", r.status_code)
-    print("Response :", r.text)
+    print("LINE Status :", r.status_code)
+    print(r.text)
     print("=" * 50)
 
     r.raise_for_status()
