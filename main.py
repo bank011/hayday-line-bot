@@ -1,32 +1,35 @@
-from youtube import get_latest
-from state import load, save
-from line import send
+from youtube import get_news as youtube_news
+from supercell import get_news as supercell_news
+from line import send_message
 
-state = load()
 
-news = get_latest()
+def send(news):
 
-if news is None:
-    print("No news")
-    exit()
+    if news is None:
+        return
 
-last = state.get(news["source"])
+    text = f"""🎮 {news['source']}
 
-if last == news["id"]:
-    print("Already sent")
-    exit()
+📰 {news['title']}
 
-send(
-    f"""📢 {news['source']}
-
-{news['title']}
-
-{news['link']}
+🔗 {news['link']}
 """
-)
 
-state[news["source"]] = news["id"]
+    send_message(text)
 
-save(state)
 
-print("Done")
+def main():
+
+    print("=== Hay Day News Bot ===")
+
+    print("Checking YouTube...")
+    send(youtube_news())
+
+    print("Checking Supercell...")
+    send(supercell_news())
+
+    print("Done")
+
+
+if __name__ == "__main__":
+    main()
