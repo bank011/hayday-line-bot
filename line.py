@@ -3,7 +3,7 @@ import requests
 from config import LINE_CHANNEL_ACCESS_TOKEN, LINE_GROUP_ID
 
 
-def send_message(news):
+def send_message(text):
 
     headers = {
         "Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}",
