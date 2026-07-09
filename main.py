@@ -1,53 +1,47 @@
-from line import send_message
-from supercell import get_news
+from supercell import get_news_list
 from reader import read_article
 from ai import summarize
+from line import send_message
 from state import is_duplicate
 
 
 def main():
 
-    print("================================")
-    print(" Hay Day AI News Bot")
-    print("================================")
+    print("=" * 50)
+    print("Hay Day AI News Bot")
+    print("=" * 50)
 
-    news = get_news()
+    news_list = get_news_list()
 
-    if news is None:
-        print("No news found.")
+    if len(news_list) == 0:
+        print("No news.")
         return
 
-    print(f"Found : {news['title']}")
+    for news in news_list:
 
-    if is_duplicate("supercell", news["url"]):
-        print("Already sent.")
-        return
+        print("Checking :", news["title"])
 
-    print("Reading article...")
+        if is_duplicate("supercell", news["id"]):
+            print("Already sent.")
+            continue
 
-    article = read_article(news["url"])
+        article = read_article(news["url"])
 
-    if not article:
-        print("Article is empty.")
-        return
+        if len(article["content"]) < 50:
+            print("Empty article.")
+            continue
 
-    print("Summarizing with Groq...")
+        result = summarize(article)
 
-    result = summarize(article)
+        if result.strip().upper() == "SKIP":
+            print("Skip")
+            continue
 
-    if not result:
-        print("No AI response.")
-        return
+        send_message(result)
 
-    if result.strip().upper() == "SKIP":
-        print("Skip this article.")
-        return
+        print("Sent")
 
-    print("Sending LINE...")
-
-    send_message(result)
-
-    print("Done.")
+    print("Done")
 
 
 if __name__ == "__main__":
