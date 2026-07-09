@@ -1,8 +1,12 @@
 import feedparser
 
+from state import is_duplicate
+
 RSS = "https://www.youtube.com/feeds/videos.xml?channel_id=UC27cEfYbMEA006oOOKc9hKA"
 
-def get_latest():
+
+def get_news():
+
     feed = feedparser.parse(RSS)
 
     if not feed.entries:
@@ -10,9 +14,14 @@ def get_latest():
 
     item = feed.entries[0]
 
-    return {
+    news = {
+        "source": "YouTube",
         "id": item.id,
         "title": item.title,
-        "link": item.link,
-        "source": "YouTube"
+        "link": item.link
     }
+
+    if is_duplicate("youtube", news["id"]):
+        return None
+
+    return news
