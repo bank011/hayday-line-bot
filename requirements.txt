@@ -1,4 +1,6 @@
 requests
 beautifulsoup4
-lxml
 feedparser
+lxml
+
+groq
