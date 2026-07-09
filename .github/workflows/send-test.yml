@@ -1,6 +1,8 @@
 name: Send LINE Test Message
 
 on:
+  schedule:
+    - cron: '0 * * * *'
   workflow_dispatch:
 
 jobs:
