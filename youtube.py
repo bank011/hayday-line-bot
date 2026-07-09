@@ -14,11 +14,17 @@ def get_news():
 
     item = feed.entries[0]
 
+    description = ""
+
+    if "summary" in item:
+        description = item.summary
+
     news = {
         "source": "YouTube",
         "id": item.id,
         "title": item.title,
-        "link": item.link
+        "description": description,
+        "link": item.link,
     }
 
     if is_duplicate("youtube", news["id"]):
