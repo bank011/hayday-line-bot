@@ -1,46 +1,81 @@
-from groq import Groq
 import os
+from groq import Groq
 
 client = Groq(
     api_key=os.environ["GROQ_API_KEY"]
 )
 
 
-def summarize(text):
+def summarize(article):
 
     prompt = f"""
 คุณคือผู้เชี่ยวชาญเกม Hay Day
 
-อ่านข้อความต่อไปนี้ แล้วตอบเป็นภาษาไทย
+อ่านข่าวนี้ แล้วตอบเป็นภาษาไทยเท่านั้น
 
-จัดรูปแบบดังนี้
+ถ้าไม่ใช่ข่าวเกี่ยวกับ
 
-🌾 ชื่อกิจกรรม
+- Event
+- Update
+- Maintenance
+- Farm Pass
+- Derby
+- Valley
+- Double Coin
+- Double XP
+- Gift
+- Decoration
+- Collaboration
+
+ให้ตอบเพียง
+
+SKIP
+
+======================
+
+ถ้าใช่ ให้ตอบตามรูปแบบนี้
+
+🌾 Hay Day
+
+📢 ประเภท
+...
 
 📅 วันที่
+...
 
 🎁 ของรางวัล
+...
 
 📋 สรุป
 
+...
+
 💡 คำแนะนำ
 
-ข้อความ
+...
 
-{text}
+======================
 
-ห้ามตอบเป็นภาษาอังกฤษ
+หัวข้อ
+{article["title"]}
+
+วันที่
+{article["date"]}
+
+เนื้อหา
+{article["content"]}
+
 """
 
-    chat = client.chat.completions.create(
+    response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
+        temperature=0.2,
         messages=[
             {
                 "role": "user",
                 "content": prompt
             }
-        ],
-        temperature=0.2
+        ]
     )
 
-    return chat.choices[0].message.content
+    return response.choices[0].message.content.strip()
