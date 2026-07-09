@@ -1,50 +1,32 @@
-from youtube import get_latest as youtube_latest
-from supercell import get_latest as supercell_latest
+from youtube import get_latest
+from state import load, save
+from line import send
 
-from classifier import is_important
+state = load()
 
-from line import send_message
+news = get_latest()
 
-from state import load_state, save_state
+if news is None:
+    print("No news")
+    exit()
 
+last = state.get(news["source"])
 
-def process(news):
+if last == news["id"]:
+    print("Already sent")
+    exit()
 
-    if news is None:
-        return
+send(
+    f"""📢 {news['source']}
 
-    state = load_state()
+{news['title']}
 
-    last = state.get(news["source"])
-
-    if last == news["id"]:
-        print("Duplicate")
-        return
-
-    if not is_important(news["title"]):
-        print("Skip")
-        return
-
-    send_message(
-        f"""🎮 {news["source"]}
-
-{news["title"]}
-
-{news["link"]}
+{news['link']}
 """
-    )
+)
 
-    state[news["source"]] = news["id"]
+state[news["source"]] = news["id"]
 
-    save_state(state)
+save(state)
 
-
-def main():
-
-    process(youtube_latest())
-
-    process(supercell_latest())
-
-
-if __name__ == "__main__":
-    main()
+print("Done")
