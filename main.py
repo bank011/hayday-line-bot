@@ -15,7 +15,7 @@ def send(news):
 🔗 {news['link']}
 """
 
-    send_message(text)
+    send_message(news)
 
 
 def main():
