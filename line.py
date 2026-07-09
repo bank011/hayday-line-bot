@@ -1,36 +1,32 @@
+import os
 import requests
 
-from config import (
-    LINE_CHANNEL_ACCESS_TOKEN,
-    LINE_GROUP_ID,
-)
+TOKEN = os.environ["LINE_CHANNEL_ACCESS_TOKEN"]
+GROUP = os.environ["LINE_GROUP_ID"]
 
 
-def send_message(text):
+def send(text):
 
     headers = {
-        "Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}",
-        "Content-Type": "application/json",
+        "Authorization": f"Bearer {TOKEN}",
+        "Content-Type": "application/json"
     }
 
-    payload = {
-        "to": LINE_GROUP_ID,
+    body = {
+        "to": GROUP,
         "messages": [
             {
                 "type": "text",
-                "text": text,
+                "text": text
             }
-        ],
+        ]
     }
 
     r = requests.post(
         "https://api.line.me/v2/bot/message/push",
         headers=headers,
-        json=payload,
-        timeout=30,
+        json=body
     )
 
     print(r.status_code)
     print(r.text)
-
-    r.raise_for_status()
