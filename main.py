@@ -1,25 +1,63 @@
 import os
 import requests
+from bs4 import BeautifulSoup
 
-LINE_CHANNEL_ACCESS_TOKEN = os.environ["LINE_CHANNEL_ACCESS_TOKEN"]
-LINE_GROUP_ID = os.environ["LINE_GROUP_ID"]
+ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
+GROUP_ID = os.getenv("LINE_GROUP_ID")
 
-def send_line_message(text: str) -> None:
-    url = "https://api.line.me/v2/bot/message/push"
-    headers = {
-        "Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}",
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "to": LINE_GROUP_ID,
-        "messages": [
-            {"type": "text", "text": text}
-        ],
-    }
+URL = "https://hayday.com/en/news"
 
-    r = requests.post(url, headers=headers, json=payload, timeout=30)
-    r.raise_for_status()
-    print("Sent:", r.status_code, r.text)
+headers = {
+    "User-Agent": "Mozilla/5.0"
+}
 
-if __name__ == "__main__":
-    send_line_message("🎉 Hay Day News Bot พร้อมใช้งานแล้ว!")
+r = requests.get(URL, headers=headers, timeout=20)
+r.raise_for_status()
+
+soup = BeautifulSoup(r.text, "lxml")
+
+title = None
+link = None
+
+for a in soup.find_all("a", href=True):
+    href = a["href"]
+
+    if "/news/" in href:
+        text = a.get_text(strip=True)
+
+        if len(text) > 5:
+            title = text
+
+            if href.startswith("/"):
+                link = "https://hayday.com" + href
+            else:
+                link = href
+            break
+
+if not title:
+    raise Exception("News not found")
+
+message = {
+    "to": GROUP_ID,
+    "messages": [
+        {
+            "type": "text",
+            "text": f"""📰 Hay Day News
+
+{title}
+
+{link}"""
+        }
+    ]
+}
+
+requests.post(
+    "https://api.line.me/v2/bot/message/push",
+    headers={
+        "Authorization": f"Bearer {ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    },
+    json=message,
+).raise_for_status()
+
+print("Done")
