@@ -1,3 +1,4 @@
+import json
 import requests
 from bs4 import BeautifulSoup
 
@@ -18,17 +19,37 @@ def read_article(url):
 
     soup = BeautifulSoup(r.text, "html.parser")
 
-    # ลบ tag ที่ไม่ต้องการ
-    for tag in soup([
-        "script",
-        "style",
-        "noscript",
-        "svg",
-        "header",
-        "footer",
-        "nav"
-    ]):
-        tag.decompose()
+    result = {
+        "title": "",
+        "date": "",
+        "content": "",
+        "image": ""
+    }
+
+    # ----------------------------
+    # JSON-LD
+    # ----------------------------
+
+    for tag in soup.find_all("script", type="application/ld+json"):
+
+        try:
+
+            data = json.loads(tag.string)
+
+            if isinstance(data, dict):
+
+                result["title"] = data.get("headline", "")
+
+                result["date"] = data.get("datePublished", "")
+
+                result["image"] = data.get("image", "")
+
+        except Exception:
+            pass
+
+    # ----------------------------
+    # เนื้อหา
+    # ----------------------------
 
     paragraphs = []
 
@@ -41,6 +62,6 @@ def read_article(url):
 
         paragraphs.append(text)
 
-    article = "\n\n".join(paragraphs)
+    result["content"] = "\n\n".join(paragraphs)
 
-    return article
+    return result
