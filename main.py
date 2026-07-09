@@ -14,56 +14,42 @@ def main():
     news_list = get_news_list()
 
     if not news_list:
-        print("❌ No news found.")
+        print("No Hay Day news found.")
         return
 
     sent = 0
 
     for news in news_list:
 
-        print(f"\n📰 {news['title']}")
+        print(f"Checking : {news['title']}")
 
-        # เช็กข่าวซ้ำ
         if is_duplicate(news["id"]):
-            print("⏩ Already sent")
+            print("Already sent")
             continue
 
-        # อ่านบทความ
         article = read_article(news["url"])
 
-        if not article:
-            print("❌ Article not found")
+        if not article["content"]:
+            print("Empty article")
             continue
-
-        if len(article["content"]) < 50:
-            print("❌ Empty content")
-            continue
-
-        print("🤖 AI is summarizing...")
 
         result = summarize(article)
 
         if not result:
-            print("❌ AI returned nothing")
+            print("AI Error")
             continue
 
         if result.strip().upper() == "SKIP":
-            print("⏩ AI skipped")
+            print("Skip")
             continue
-
-        print("📤 Sending to LINE...")
 
         send_message(result)
 
-        # บันทึกว่าข่าวนี้ส่งแล้ว
         mark_sent(news["id"])
 
         sent += 1
 
-    print()
-    print("=" * 60)
-    print(f"✅ Finished ({sent} news sent)")
-    print("=" * 60)
+    print(f"Finished ({sent} news sent)")
 
 
 if __name__ == "__main__":
