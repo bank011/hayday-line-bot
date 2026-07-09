@@ -6,14 +6,12 @@ client = Groq(
 )
 
 
-def summarize(article):
-
-    prompt = f"""
+PROMPT = """
 คุณคือผู้เชี่ยวชาญเกม Hay Day
 
-อ่านข่าวนี้ แล้วตอบเป็นภาษาไทยเท่านั้น
+อ่านข่าวแล้วตอบเป็นภาษาไทย
 
-ถ้าไม่ใช่ข่าวเกี่ยวกับ
+ถ้าข่าวไม่เกี่ยวกับ
 
 - Event
 - Update
@@ -27,13 +25,13 @@ def summarize(article):
 - Decoration
 - Collaboration
 
-ให้ตอบเพียง
+ให้ตอบ
 
 SKIP
 
 ======================
 
-ถ้าใช่ ให้ตอบตามรูปแบบนี้
+ถ้าใช่ ให้ตอบรูปแบบนี้
 
 🌾 Hay Day
 
@@ -47,23 +45,26 @@ SKIP
 ...
 
 📋 สรุป
-
 ...
 
 💡 คำแนะนำ
-
 ...
 
-======================
+ตอบเป็นภาษาไทยทั้งหมด
+"""
+
+
+def summarize(article):
+
+    text = f"""
 
 หัวข้อ
-{article["title"]}
 
-วันที่
-{article["date"]}
+{article['title']}
 
 เนื้อหา
-{article["content"]}
+
+{article['content']}
 
 """
 
@@ -72,8 +73,12 @@ SKIP
         temperature=0.2,
         messages=[
             {
+                "role": "system",
+                "content": PROMPT
+            },
+            {
                 "role": "user",
-                "content": prompt
+                "content": text
             }
         ]
     )
