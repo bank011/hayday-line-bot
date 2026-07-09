@@ -2,8 +2,8 @@ import os
 import requests
 from bs4 import BeautifulSoup
 
-ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
-GROUP_ID = os.getenv("LINE_GROUP_ID")
+ACCESS_TOKEN = os.environ["LINE_CHANNEL_ACCESS_TOKEN"]
+GROUP_ID = os.environ["LINE_GROUP_ID"]
 
 URL = "https://hayday.com/en/news"
 
@@ -14,27 +14,29 @@ headers = {
 r = requests.get(URL, headers=headers, timeout=20)
 r.raise_for_status()
 
-soup = BeautifulSoup(r.text, "lxml")
+soup = BeautifulSoup(r.text, "html.parser")
 
 title = None
 link = None
 
-for a in soup.find_all("a", href=True):
-    href = a["href"]
+for a in soup.select("a[href]"):
+    href = a.get("href", "")
+    text = a.get_text(" ", strip=True)
 
-    if "/en/news/" in href or "/news/" in href:
-        text = a.get_text(strip=True)
+    if len(text) < 5:
+        continue
 
-        if len(text) > 5:
-            title = text
+    if href.startswith("/"):
+        href = "https://hayday.com" + href
 
-            if href.startswith("/"):
-                link = "https://hayday.com" + href
-            else:
-                link = href
-            break
-if not title:
-    raise Exception("News not found")
+    if "hayday.com" in href:
+        title = text
+        link = href
+        break
+
+if title is None:
+    title = "ไม่พบข่าวล่าสุด"
+    link = "https://hayday.com/en/news"
 
 message = {
     "to": GROUP_ID,
@@ -50,13 +52,21 @@ message = {
     ]
 }
 
-requests.post(
-    "https://api.line.me/v2/bot/message/push",
-    headers={
-        "Authorization": f"Bearer {ACCESS_TOKEN}",
-        "Content-Type": "application/json"
-    },
-    json=message,
-).raise_for_status()
+headers = {
+    "Authorization": f"Bearer {ACCESS_TOKEN}",
+    "Content-Type": "application/json"
+}
 
-print("Done")
+response = requests.post(
+    "https://api.line.me/v2/bot/message/push",
+    headers=headers,
+    json=message,
+    timeout=20
+)
+
+print(response.status_code)
+print(response.text)
+
+response.raise_for_status()
+
+print("ส่งข้อความสำเร็จ")
