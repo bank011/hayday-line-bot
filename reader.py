@@ -18,22 +18,29 @@ def read_article(url):
 
     soup = BeautifulSoup(r.text, "html.parser")
 
-    # ลบ script และ style
-    for tag in soup(["script", "style", "noscript"]):
+    # ลบ tag ที่ไม่ต้องการ
+    for tag in soup([
+        "script",
+        "style",
+        "noscript",
+        "svg",
+        "header",
+        "footer",
+        "nav"
+    ]):
         tag.decompose()
 
-    text = []
+    paragraphs = []
 
-    # ดึงข้อความจาก paragraph
     for p in soup.find_all("p"):
 
-        t = p.get_text(" ", strip=True)
+        text = p.get_text(" ", strip=True)
 
-        if len(t) < 20:
+        if len(text) < 30:
             continue
 
-        text.append(t)
+        paragraphs.append(text)
 
-    article = "\n\n".join(text)
+    article = "\n\n".join(paragraphs)
 
     return article
