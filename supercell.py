@@ -1,7 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 
-URL = "https://supercell.com/en/news/announcement/hayday/page/1/"
+URL = "https://supercell.com/en/news/"
 
 
 def get_news_list():
@@ -10,11 +10,7 @@ def get_news_list():
         "User-Agent": "Mozilla/5.0"
     }
 
-    r = requests.get(
-        URL,
-        headers=headers,
-        timeout=30
-    )
+    r = requests.get(URL, headers=headers, timeout=30)
 
     r.raise_for_status()
 
@@ -41,14 +37,20 @@ def get_news_list():
 
         title = a.get_text(" ", strip=True)
 
-        if len(title) < 8:
+        if len(title) < 10:
             continue
 
-        news.append({
-            "id": href,
-            "title": title,
-            "url": href,
-            "source": "Supercell"
-        })
+        if "hay day" not in (
+            title.lower() + href.lower()
+        ):
+            continue
+
+        news.append(
+            {
+                "id": href,
+                "title": title,
+                "url": href,
+            }
+        )
 
     return news
