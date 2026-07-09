@@ -1,58 +1,57 @@
 import requests
 from bs4 import BeautifulSoup
 
-from state import is_duplicate
-
-URL = "https://supercell.com/en/news/"
+URL = "https://supercell.com/en/news/announcement/hayday/page/1/"
 
 
 def get_news():
 
     headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/138.0 Safari/537.36"
-        )
+        "User-Agent": "Mozilla/5.0"
     }
 
-    r = requests.get(URL, headers=headers, timeout=20)
+    r = requests.get(URL, headers=headers, timeout=30)
     r.raise_for_status()
 
     soup = BeautifulSoup(r.text, "html.parser")
 
-    keywords = [
-        "hay day",
-        "hayday"
-    ]
+    articles = []
 
     for a in soup.find_all("a", href=True):
 
         href = a["href"]
 
+        if "/news/" not in href:
+            continue
+
         if href.startswith("/"):
             href = "https://supercell.com" + href
 
-        text = a.get_text(" ", strip=True)
+        title = a.get_text(" ", strip=True)
 
-        if len(text) < 5:
+        if len(title) < 8:
             continue
 
-        check = (text + " " + href).lower()
+        articles.append({
+            "title": title,
+            "url": href
+        })
 
-        if not any(k in check for k in keywords):
+    # ลบข่าวซ้ำ
+    unique = []
+
+    seen = set()
+
+    for item in articles:
+
+        if item["url"] in seen:
             continue
 
-        news = {
-            "source": "Supercell",
-            "id": href,
-            "title": text,
-            "link": href,
-        }
+        seen.add(item["url"])
 
-        if is_duplicate("supercell", href):
-            return None
+        unique.append(item)
 
-        return news
+    if len(unique) == 0:
+        return None
 
-    return None
+    return unique[0]
