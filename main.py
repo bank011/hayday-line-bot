@@ -1,32 +1,27 @@
-from youtube import get_news as youtube_news
-from supercell import get_news as supercell_news
+from youtube import get_news
 from line import send_message
-
-
-def send(news):
-
-    if news is None:
-        return
-
-    text = f"""🎮 {news['source']}
-
-📰 {news['title']}
-
-🔗 {news['link']}
-"""
-
-    send_message(news)
+from ai import summarize
 
 
 def main():
 
-    print("=== Hay Day News Bot ===")
+    news = get_news()
 
-    print("Checking YouTube...")
-    send(youtube_news())
+    if news is None:
+        print("No new news.")
+        return
 
-    print("Checking Supercell...")
-    send(supercell_news())
+    text = f"""
+Title:
+{news['title']}
+
+Description:
+{news['description']}
+"""
+
+    result = summarize(text)
+
+    send_message(result)
 
     print("Done")
 
