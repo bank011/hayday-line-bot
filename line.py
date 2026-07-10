@@ -30,9 +30,4 @@ def send_message(text):
         timeout=30
     )
 
-    print("=" * 50)
-    print("LINE Status :", r.status_code)
-    print(r.text)
-    print("=" * 50)
-
     r.raise_for_status()
