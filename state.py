@@ -4,10 +4,10 @@ import os
 STATE_FILE = "state.json"
 
 
-def load_state():
+def load():
 
     if not os.path.exists(STATE_FILE):
-        return {"sent": []}
+        return {"last_video": ""}
 
     with open(
         STATE_FILE,
@@ -17,7 +17,7 @@ def load_state():
         return json.load(f)
 
 
-def save_state(state):
+def save(data):
 
     with open(
         STATE_FILE,
@@ -25,28 +25,24 @@ def save_state(state):
         encoding="utf-8"
     ) as f:
         json.dump(
-            state,
+            data,
             f,
             ensure_ascii=False,
             indent=2
         )
 
 
-def is_duplicate(news_id):
+def is_sent(video_id):
 
-    state = load_state()
+    data = load()
 
-    return news_id in state["sent"]
+    return data.get("last_video") == video_id
 
 
-def mark_sent(news_id):
+def mark(video_id):
 
-    state = load_state()
+    data = load()
 
-    if news_id not in state["sent"]:
+    data["last_video"] = video_id
 
-        state["sent"].append(news_id)
-
-        state["sent"] = state["sent"][-100:]
-
-        save_state(state)
+    save(data)
