@@ -13,6 +13,12 @@ def get_latest_video():
         return None
 
     item = feed.entries[0]
+print("="*60)
+print("Latest Video")
+print(item.title)
+print(item.link)
+print(item.published)
+print("="*60)
 
     return {
         "id": item.yt_videoid,
