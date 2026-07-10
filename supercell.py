@@ -4,21 +4,23 @@ from bs4 import BeautifulSoup
 URL = "https://supercell.com/en/news/"
 
 
-def get_news_list():
+def get_latest_news():
 
     headers = {
         "User-Agent": "Mozilla/5.0"
     }
 
-    r = requests.get(URL, headers=headers, timeout=30)
+    r = requests.get(
+        URL,
+        headers=headers,
+        timeout=30
+    )
 
     r.raise_for_status()
 
     soup = BeautifulSoup(r.text, "html.parser")
 
-    news = []
-
-    seen = set()
+    articles = []
 
     for a in soup.find_all("a", href=True):
 
@@ -30,27 +32,24 @@ def get_news_list():
         if href.startswith("/"):
             href = "https://supercell.com" + href
 
-        if href in seen:
-            continue
-
-        seen.add(href)
-
         title = a.get_text(" ", strip=True)
 
         if len(title) < 10:
             continue
 
-        if "hay day" not in (
-            title.lower() + href.lower()
-        ):
+        check = (title + href).lower()
+
+        if "hay day" not in check:
             continue
 
-        news.append(
-            {
-                "id": href,
-                "title": title,
-                "url": href,
-            }
-        )
+        articles.append({
+            "id": href,
+            "title": title,
+            "url": href
+        })
 
-    return news
+    # เอาเฉพาะข่าวล่าสุด
+    if articles:
+        return articles[0]
+
+    return None
