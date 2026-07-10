@@ -27,11 +27,13 @@ def main():
 
     message = f"""{result}
 
-━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━
 
-🔗 ต้นฉบับ
+📺 รับชมวิดีโอต้นฉบับ
 
 {video["link"]}
+
+🤖 Powered by Hay Day AI News Bot
 """
 
     send_message(message)
