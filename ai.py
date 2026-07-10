@@ -1,9 +1,7 @@
 import os
 from groq import Groq
 
-client = Groq(
-    api_key=os.environ["GROQ_API_KEY"]
-)
+client = Groq(api_key=os.environ["GROQ_API_KEY"])
 
 PROMPT = """
 คุณเป็นนักข่าว Hay Day ประเทศไทย
@@ -17,7 +15,6 @@ PROMPT = """
 ให้สรุปใหม่เป็นภาษาไทย
 
 ตัด
-
 - Hashtag
 - Subscribe
 - Like
@@ -26,7 +23,6 @@ PROMPT = """
 - โปรโมตช่อง
 
 ถ้าเป็นคลิปเกี่ยวกับ
-
 - Event
 - Update
 - Boat
@@ -41,36 +37,22 @@ PROMPT = """
 ให้ตอบแบบนี้
 
 🌾 Hay Day Update
-
 🎥 ประเภท
-
 📅 วันที่
-
 📋 สรุป
-
 🎁 ของรางวัล
-
 💡 คำแนะนำ
 
-ถ้าไม่มีข้อมูล
-
-ให้เขียน
-
-ยังไม่ระบุ
+ถ้าไม่มีข้อมูล ให้เขียน "ยังไม่ระบุ"
 
 ห้ามมีภาษาอังกฤษหรือภาษาอื่นปะปน
 
 ตอบเป็นภาษาไทยล้วน
 
-ถ้าไม่เกี่ยวกับ Hay Day
-
-ตอบเพียงคำเดียว
-
-SKIP
+ถ้าไม่เกี่ยวกับ Hay Day ตอบเพียงคำเดียว: SKIP
 """
 
 def summarize(video):
-
     text = f"""
 หัวข้อ
 
@@ -85,15 +67,9 @@ def summarize(video):
         model="llama-3.3-70b-versatile",
         temperature=0.2,
         messages=[
-            {
-                "role": "system",
-                "content": PROMPT
-            },
-            {
-                "role": "user",
-                "content": text
-            }
-        ]
+            {"role": "system", "content": PROMPT},
+            {"role": "user", "content": text},
+        ],
     )
 
     return response.choices[0].message.content.strip()
