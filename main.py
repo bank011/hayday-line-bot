@@ -1,62 +1,45 @@
-from supercell import get_latest_news
-from reader import read_article
+from youtube import get_latest_video
 from ai import summarize
 from line import send_message
-from state import is_duplicate, mark_sent
+from state import is_sent, mark
 
 
 def main():
 
-    print("=" * 60)
-    print("🌾 Hay Day AI News Bot")
-    print("=" * 60)
+    print("Hay Day Home Bot")
 
-    news = get_latest_news()
+    video = get_latest_video()
 
-    if news is None:
-        print("No Hay Day news found.")
+    if video is None:
+        print("No video")
         return
 
-    print(f"Latest News : {news['title']}")
-
-    # ข่าวนี้เคยส่งแล้วหรือยัง
-    if is_duplicate(news["id"]):
-        print("Already sent.")
+    if is_sent(video["id"]):
+        print("Already sent")
         return
 
-    print("Reading article...")
-
-    article = read_article(news["url"])
-
-    if not article:
-        print("Article not found.")
-        return
-
-    if len(article["content"]) < 50:
-        print("Article content empty.")
-        return
-
-    print("AI Summarizing...")
-
-    result = summarize(article)
-
-    if not result:
-        print("AI returned nothing.")
-        return
+    result = summarize(video)
 
     if result.strip().upper() == "SKIP":
-        print("AI skipped this news.")
-        mark_sent(news["id"])
+        mark(video["id"])
+        print("Skip")
         return
 
-    print("Sending LINE...")
+    message = f"""🌾 Hay Day Update
 
-    send_message(result)
+{result}
 
-    # จำว่าข่าวนี้ส่งแล้ว
-    mark_sent(news["id"])
+━━━━━━━━━━━━━━
 
-    print("Done.")
+📺 YouTube
+{video["link"]}
+"""
+
+    send_message(message)
+
+    mark(video["id"])
+
+    print("Done")
 
 
 if __name__ == "__main__":
