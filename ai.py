@@ -1,3 +1,10 @@
+import os
+from groq import Groq
+
+client = Groq(
+    api_key=os.environ["GROQ_API_KEY"]
+)
+
 PROMPT = """
 คุณเป็นนักข่าว Hay Day ประเทศไทย
 
@@ -49,7 +56,7 @@ PROMPT = """
 
 ให้เขียน
 
-"ยังไม่ระบุ"
+ยังไม่ระบุ
 
 ห้ามมีภาษาอังกฤษหรือภาษาอื่นปะปน
 
@@ -57,7 +64,36 @@ PROMPT = """
 
 ถ้าไม่เกี่ยวกับ Hay Day
 
-ตอบ
+ตอบเพียงคำเดียว
 
 SKIP
 """
+
+def summarize(video):
+
+    text = f"""
+หัวข้อ
+
+{video['title']}
+
+รายละเอียด
+
+{video['summary']}
+"""
+
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        temperature=0.2,
+        messages=[
+            {
+                "role": "system",
+                "content": PROMPT
+            },
+            {
+                "role": "user",
+                "content": text
+            }
+        ]
+    )
+
+    return response.choices[0].message.content.strip()
