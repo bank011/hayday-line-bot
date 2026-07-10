@@ -30,4 +30,10 @@ def send_message(text):
         timeout=30
     )
 
+    if r.status_code != 200:
+    print("LINE ERROR")
+    print(r.status_code)
+    print(r.text)
     r.raise_for_status()
+
+print("LINE SUCCESS")
