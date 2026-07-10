@@ -1,6 +1,6 @@
 import feedparser
 
-CHANNEL_ID = "UC27cEfYbMEA006oOOKc9hKA"
+CHANNEL_ID = "UC3vKD95sPSqnOhhI2yKy2rQ"
 
 RSS = f"https://www.youtube.com/feeds/videos.xml?channel_id={CHANNEL_ID}"
 
