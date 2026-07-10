@@ -5,67 +5,41 @@ client = Groq(
     api_key=os.environ["GROQ_API_KEY"]
 )
 
-
 PROMPT = """
 คุณคือผู้เชี่ยวชาญเกม Hay Day
 
-อ่านข่าวแล้วตอบเป็นภาษาไทย
+อ่านข้อความจาก YouTube
 
-ถ้าข่าวไม่เกี่ยวกับ
+หน้าที่ของคุณคือ
 
-- Event
-- Update
-- Maintenance
-- Farm Pass
-- Derby
-- Valley
-- Double Coin
-- Double XP
-- Gift
-- Decoration
-- Collaboration
+1. แปลเป็นภาษาไทย
+2. สรุปให้อ่านง่าย
+3. ถ้าเป็นกิจกรรมให้บอก
+- วันเริ่ม
+- วันสิ้นสุด
+- ของรางวัล
+- คำแนะนำ
 
-ให้ตอบ
+ถ้าไม่เกี่ยวกับเกม Hay Day
+
+ตอบ
 
 SKIP
-
-======================
-
-ถ้าใช่ ให้ตอบรูปแบบนี้
-
-🌾 Hay Day
-
-📢 ประเภท
-...
-
-📅 วันที่
-...
-
-🎁 ของรางวัล
-...
-
-📋 สรุป
-...
-
-💡 คำแนะนำ
-...
 
 ตอบเป็นภาษาไทยทั้งหมด
 """
 
 
-def summarize(article):
+def summarize(video):
 
     text = f"""
-
 หัวข้อ
 
-{article['title']}
+{video['title']}
 
-เนื้อหา
+รายละเอียด
 
-{article['content']}
-
+{video['summary']}
 """
 
     response = client.chat.completions.create(
