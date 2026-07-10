@@ -25,13 +25,12 @@ def main():
         print("Skip")
         return
 
-    message = f"""🌾 Hay Day Update
+    message = f"""{result}
 
-{result}
+━━━━━━━━━━━━━━━━━━
 
-━━━━━━━━━━━━━━
+🔗 ต้นฉบับ
 
-📺 YouTube
 {video["link"]}
 """
 
