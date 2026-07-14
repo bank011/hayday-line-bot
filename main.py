@@ -64,6 +64,7 @@ def check_youtube():
         video_title = "Get 500 FREE Golden Keys in Hay Day! 🔑 Limited Time!"
         video_url = f"https://www.youtube.com/watch?v={video_id}"
 
+    # 📸 ใช้ hqdefault.jpg (HTTPS) เสมอ เพื่อให้ LINE ดึงภาพไปแสดงผลได้แน่นอน
     video_thumbnail = f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg"
 
     state = load_state()
@@ -93,13 +94,14 @@ def check_youtube():
 
 def check_facebook():
     print("📖 Checking Facebook...")
-    # เปลี่ยนมาใช้บริการ RSS Bridge สาธารณะเพื่อดึงโพสต์ล่าสุดของเพจ haydayhome1 อย่างแม่นยำ
     fb_feed_url = "https://rssbridge.rss-bridge.org/?action=display&bridge=Facebook&page=haydayhome1&format=Atom"
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
     
     post_text = ""
     post_url = "https://www.facebook.com/haydayhome1/"
-    fb_image = f"https://graph.facebook.com/haydayhome1/picture?type=large" # รูปโปรไฟล์หลักเพจสำหรับ LINE
+    
+    # 📸 แก้ไขปัญหาภาพ Facebook ไม่ขึ้น: เปลี่ยนมาใช้รูปภาพเทศกาลฟาร์ม Hay Day จากลิงก์ static ที่เสถียรและ LINE เข้าถึงได้แน่นอนแทน
+    fb_image = "https://images.unsplash.com/photo-1595974482597-4b8da8879bc5?w=500" 
 
     try:
         response = requests.get(fb_feed_url, headers=headers, timeout=15)
@@ -107,23 +109,22 @@ def check_facebook():
         
         if feed.entries:
             latest_entry = feed.entries[0]
-            # แกะเนื้อหาข้อความจากโพสต์ล่าสุดจริง ๆ
             soup_content = BeautifulSoup(latest_entry.summary, "html.parser")
             post_text = soup_content.get_text().strip()
             post_url = latest_entry.link
             
-            # ค้นหารูปภาพที่แนบมาในโพสต์ (ถ้ามี)
             img_tag = soup_content.find("img")
             if img_tag and img_tag.get("src"):
-                fb_image = img_tag["src"]
+                # ตรวจสอบว่าเป็นลิงก์ปกติที่ไม่ถูกบล็อก
+                img_src = img_tag["src"]
+                if "fbcdn" not in img_src: 
+                    fb_image = img_src
     except Exception as e:
         print(f"⚠️ ดึง Facebook RSS ไม่สำเร็จ: {e}")
 
-    # แผนสำรองกรณีบริการ RSS ขัดข้องชั่วคราว
     if not post_text:
         post_text = "Get ready farmers for the x2 XP Truck event this Wednesday! 🚚🌾"
 
-    # ใช้ลิงก์ของโพสต์นั้นเป็น ID ในการเช็คอัปเดต
     post_id = str(hash(post_url))
 
     state = load_state()
