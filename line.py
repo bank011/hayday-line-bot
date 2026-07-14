@@ -1,7 +1,7 @@
 import requests
 import os
 
-# ดึงค่า API Key ที่เราจะไปเซฟไว้ใน GitHub Secrets
+# ดึงค่า API Key จากระบบ Secrets
 MPW_API_KEY = os.environ.get("MPW_API_KEY", "")
 
 def send_message(text):
@@ -9,15 +9,14 @@ def send_message(text):
         print("❌ LINE ERROR: ไม่พบรหัส MPW_API_KEY ในระบบ Secrets")
         return
 
-    # ลิงก์ API ของระบบ MPW Line Auto
-    url = "https://mpw-lineauto.com/api/v1/notify"
+    # ⚠️ แก้ไขลิงก์เป็น Endpoint ที่ถูกต้องสำหรับระบบส่ง Notify
+    url = "https://mpw-lineauto.com/api/notify"
     
     headers = {
         "Authorization": f"Bearer {MPW_API_KEY}",
         "Content-Type": "application/json"
     }
     
-    # ข้อความที่จะส่งเข้าไลน์กลุ่ม
     payload = {
         "message": text
     }
