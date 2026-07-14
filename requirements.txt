@@ -1,4 +1,4 @@
-requests
-feedparser
 groq
-google-generativeai
+feedparser
+requests
+beautifulsoup4
