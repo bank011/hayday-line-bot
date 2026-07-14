@@ -51,7 +51,7 @@ def send_message(text, image_url=None):
         "message": text
     }
 
-    # แนบลิงก์รูปภาพเพิ่มเข้าไปในระบบของ MPW ถ้ามีส่งมา
+    # 📸 แนบลิงก์รูปภาพเพิ่มเข้าไปในระบบของ MPW ถ้ามีส่งมา
     if image_url:
         payload["image_url"] = image_url
 
