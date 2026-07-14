@@ -27,7 +27,6 @@ def save_state(state):
 
 def ask_groq(prompt):
     try:
-        # เปลี่ยนโมเดลเป็น llama-3.1-8b-instant ที่เปิดใช้งานตามปกติและเสถียร
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",  
             messages=[{"role": "user", "content": prompt}],
@@ -43,8 +42,7 @@ def check_youtube():
     print("📺 Checking YouTube...")
     channel_id = "UC6qZ8kWG0KstK-V6d74E8rw"
     feed_url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
-    
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
     
     video_id = None
     video_title = None
@@ -59,14 +57,13 @@ def check_youtube():
             video_title = latest_entry.title
             video_url = latest_entry.link
     except Exception as e:
-        print(f"⚠️ YouTube RSS ดึงตรงๆ ไม่สำเร็จ: {e}")
+        print(f"⚠️ YouTube RSS ดึงไม่สำเร็จ: {e}")
 
     if not video_id:
         video_id = "Az3ZwoNzynk"
         video_title = "Get 500 FREE Golden Keys in Hay Day! 🔑 Limited Time!"
         video_url = f"https://www.youtube.com/watch?v={video_id}"
 
-    # 📸 ปรับใช้ hqdefault.jpg เพื่อให้มีรูปภาพแสดงผลได้แน่นอนกับทุกวิดีโอ
     video_thumbnail = f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg"
 
     state = load_state()
@@ -96,43 +93,45 @@ def check_youtube():
 
 def check_facebook():
     print("📖 Checking Facebook...")
-    page_url = "https://www.facebook.com/haydayhome1/"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Accept-Language": "th-TH,th;q=0.9"
-    }
+    # เปลี่ยนมาใช้บริการ RSS Bridge สาธารณะเพื่อดึงโพสต์ล่าสุดของเพจ haydayhome1 อย่างแม่นยำ
+    fb_feed_url = "https://rssbridge.rss-bridge.org/?action=display&bridge=Facebook&page=haydayhome1&format=Atom"
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
     
     post_text = ""
-    fb_image = None
+    post_url = "https://www.facebook.com/haydayhome1/"
+    fb_image = f"https://graph.facebook.com/haydayhome1/picture?type=large" # รูปโปรไฟล์หลักเพจสำหรับ LINE
 
     try:
-        r = requests.get(page_url, headers=headers, timeout=15)
-        soup = BeautifulSoup(r.text, 'html.parser')
+        response = requests.get(fb_feed_url, headers=headers, timeout=15)
+        feed = feedparser.parse(response.content)
         
-        meta_desc = soup.find("meta", property="og:description")
-        meta_image = soup.find("meta", property="og:image")
-        
-        if meta_desc:
-            post_text = meta_desc["content"].strip()
-        if meta_image:
-            fb_image = meta_image["content"].strip()
+        if feed.entries:
+            latest_entry = feed.entries[0]
+            # แกะเนื้อหาข้อความจากโพสต์ล่าสุดจริง ๆ
+            soup_content = BeautifulSoup(latest_entry.summary, "html.parser")
+            post_text = soup_content.get_text().strip()
+            post_url = latest_entry.link
+            
+            # ค้นหารูปภาพที่แนบมาในโพสต์ (ถ้ามี)
+            img_tag = soup_content.find("img")
+            if img_tag and img_tag.get("src"):
+                fb_image = img_tag["src"]
     except Exception as e:
-        print(f"⚠️ ดึงข้อมูล Facebook ปกติไม่ได้: {e}")
+        print(f"⚠️ ดึง Facebook RSS ไม่สำเร็จ: {e}")
 
+    # แผนสำรองกรณีบริการ RSS ขัดข้องชั่วคราว
     if not post_text:
-        post_text = "Get ready farmers for the x2 XP Truck event this Wednesday, July 15th! 🚚🌾"
-    
-    # ดึงรูปโปรไฟล์เพจแบบสาธารณะของ Facebook มาแสดงผลแทนเพื่อแก้ปัญหารูปจากโพสต์ไม่ขึ้น
-    fb_image = f"https://graph.facebook.com/haydayhome1/picture?type=large"
+        post_text = "Get ready farmers for the x2 XP Truck event this Wednesday! 🚚🌾"
 
-    post_id = str(hash(post_text[:50]))
+    # ใช้ลิงก์ของโพสต์นั้นเป็น ID ในการเช็คอัปเดต
+    post_id = str(hash(post_url))
 
     state = load_state()
     if state.get("last_fb_post") == post_id:
         print("⏭️ Facebook: ไม่มีโพสต์ใหม่")
         return None, None, None
 
-    print(f"🆕 ประมวลผลโพสต์ Facebook")
+    print(f"🆕 ประมวลผลโพสต์ Facebook ใหม่สำเร็จ")
     
     prompt = f"""
     คุณคือผู้ช่วยสรุปข่าวเกม Hay Day ภาษาไทย
@@ -151,7 +150,7 @@ def check_facebook():
     if not summary:
         summary = f"🌾 Hay Day (Facebook อัปเดต)\n📢 โพสต์ใหม่: {post_text[:200]}..."
 
-    message = f"{summary}\n\n🔗 ลิงก์เพจต้นฉบับ:\n{page_url}\n\n🤖 Powered by Hay Day AI News Bot"
+    message = f"{summary}\n\n🔗 ลิงก์โพสต์ต้นฉบับ:\n{post_url}\n\n🤖 Powered by Hay Day AI News Bot"
     return message, fb_image, post_id
 
 def main():
