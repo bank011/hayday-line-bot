@@ -12,17 +12,15 @@ def send_message(text):
     # ลิงก์ปลายทางที่ถูกต้องตามเอกสาร API ของเว็บ
     url = "https://mpw-lineauto.com/api/v1/send"
     
-    # ID บัญชีแรกในระบบคือเลข 1
-    LINE_ACCOUNT_ID = 1 
-    
     headers = {
         "X-API-Key": MPW_API_KEY,
         "Content-Type": "application/json"
     }
     
-    # โครงสร้าง Data ที่ระบบ MPW ต้องการ
+    # โครงสร้าง Data ที่ระบุทั้งชื่อบัญชีและอีเมลเพื่อความแม่นยำ
     payload = {
-        "line_account_id": LINE_ACCOUNT_ID,
+        "line_account": "Hay Day Admin",
+        "line_username": "thaimixdj@gmail.com",
         "search_terms": ["วังเวง ฟาร์ม"],
         "message": text
     }
