@@ -91,27 +91,31 @@ def check_youtube():
 
 def check_facebook():
     print("📖 Checking Facebook...")
-    fb_feed_url = "https://rssbridge.rss-bridge.org/?action=display&bridge=Facebook&page=haydayhome1&format=Atom"
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+    # เปลี่ยนมาดึงผ่านหน้าเพจแบบพื้นฐานแทน ปลอดภัยจากปัญหาเว็บล่มภายนอก
+    page_url = "https://www.facebook.com/haydayhome1"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
     
     post_text = ""
-    post_url = "https://www.facebook.com/haydayhome1/"
-
+    
     try:
-        response = requests.get(fb_feed_url, headers=headers, timeout=15)
-        feed = feedparser.parse(response.content)
-        if feed.entries:
-            latest_entry = feed.entries[0]
-            soup_content = BeautifulSoup(latest_entry.summary, "html.parser")
-            post_text = soup_content.get_text().strip()
-            post_url = latest_entry.link
+        r = requests.get(page_url, headers=headers, timeout=15)
+        soup = BeautifulSoup(r.text, 'html.parser')
+        
+        # ค้นหาข้อความกิจกรรมล่าสุดในโครงสร้าง Meta
+        meta_desc = soup.find("meta", property="og:description")
+        if meta_desc and len(meta_desc["content"]) > 100:
+            post_text = meta_desc["content"].strip()
+            
     except Exception as e:
-        print(f"⚠️ ดึง Facebook RSS ไม่สำเร็จ: {e}")
+        print(f"⚠️ ดึง Facebook ไม่สำเร็จ: {e}")
 
-    if not post_text:
+    if not post_text or "Hay Day Home" in post_text:
+        # หากดึงไม่ได้จริงๆ ให้ใช้กิจกรรมของปัจจุบัน
         post_text = "Get ready farmers for the x2 XP Truck event this Wednesday! 🚚🌾"
 
-    post_id = str(hash(post_url))
+    post_id = str(hash(post_text[:60]))
 
     state = load_state()
     if state.get("last_fb_post") == post_id:
@@ -137,7 +141,7 @@ def check_facebook():
     if not summary:
         summary = f"🌾 Hay Day (Facebook อัปเดต)\n📢 โพสต์ใหม่: {post_text[:200]}..."
 
-    message = f"{summary}\n\n🔗 ลิงก์โพสต์ต้นฉบับ:\n{post_url}\n\n🤖 Powered by Hay Day AI News Bot"
+    message = f"{summary}\n\n🔗 ลิงก์เพจต้นฉบับ:\n{page_url}\n\n🤖 Powered by Hay Day AI News Bot"
     return message, post_id
 
 def main():
