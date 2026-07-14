@@ -12,7 +12,7 @@ def send_message(text):
     # ลิงก์ปลายทางที่ถูกต้องตามเอกสาร API ของเว็บ
     url = "https://mpw-lineauto.com/api/v1/send"
     
-    # ⚠️ ให้เปลี่ยนตัวเลขด้านล่างนี้เป็น ID บัญชี LINE จริงของคุณที่ปรากฏในหน้าเว็บ (เมนู ตั้งค่าบัญชี LINE)
+    # ID บัญชีแรกในระบบคือเลข 1
     LINE_ACCOUNT_ID = 1 
     
     headers = {
@@ -20,7 +20,7 @@ def send_message(text):
         "Content-Type": "application/json"
     }
     
-    # โครงสร้าง Data ที่ระบบต้องการ
+    # โครงสร้าง Data ที่ระบบ MPW ต้องการ
     payload = {
         "line_account_id": LINE_ACCOUNT_ID,
         "search_terms": ["วังเวง ฟาร์ม"],
