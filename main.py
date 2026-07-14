@@ -59,10 +59,10 @@ def check_youtube():
     except Exception as e:
         print(f"⚠️ YouTube RSS ดึงไม่สำเร็จ: {e}")
 
+    # หากดึงของจริงไม่ได้เลย ให้ยกเลิกการส่ง (ไม่ใช้แผนสำรองส่งข้อความเดา เพื่อป้องกันบอทโพสต์ซ้ำ)
     if not video_id:
-        video_id = "Az3ZwoNzynk"
-        video_title = "Get 500 FREE Golden Keys in Hay Day! 🔑 Limited Time!"
-        video_url = f"https://www.youtube.com/watch?v={video_id}"
+        print("⏭️ YouTube: ดึงข้อมูลจริงไม่ได้ ข้ามการทำงานรอบนี้")
+        return None, None
 
     state = load_state()
     if state.get("last_video") == video_id:
@@ -91,7 +91,6 @@ def check_youtube():
 
 def check_facebook():
     print("📖 Checking Facebook...")
-    # เปลี่ยนมาดึงผ่านหน้าเพจแบบพื้นฐานแทน ปลอดภัยจากปัญหาเว็บล่มภายนอก
     page_url = "https://www.facebook.com/haydayhome1"
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -103,17 +102,21 @@ def check_facebook():
         r = requests.get(page_url, headers=headers, timeout=15)
         soup = BeautifulSoup(r.text, 'html.parser')
         
-        # ค้นหาข้อความกิจกรรมล่าสุดในโครงสร้าง Meta
         meta_desc = soup.find("meta", property="og:description")
-        if meta_desc and len(meta_desc["content"]) > 100:
-            post_text = meta_desc["content"].strip()
-            
+        if meta_desc and len(meta_desc["content"]) > 30:
+            # ตรวจสอบว่าไม่ใช่แค่คำอธิบายเพจแบบซ้ำๆ
+            content = meta_desc["content"].strip()
+            if "เป็นหน้าแฟนเพจ" not in content and "หน้าแฟนเพจ" not in content:
+                post_text = content
+            else:
+                print("⚠️ พบข้อมูลทั่วไปของเพจ ไม่ใช่เนื้อหาโพสต์ใหม่")
     except Exception as e:
         print(f"⚠️ ดึง Facebook ไม่สำเร็จ: {e}")
 
-    if not post_text or "Hay Day Home" in post_text:
-        # หากดึงไม่ได้จริงๆ ให้ใช้กิจกรรมของปัจจุบัน
-        post_text = "Get ready farmers for the x2 XP Truck event this Wednesday! 🚚🌾"
+    # 🛑 ตัดการใช้แผนสำรองประโยคจำลองทิ้ง หากดึงข้อมูลไม่ได้ให้ส่งค่าว่างกลับเพื่อ "ข้าม" ทันที ป้องกันการวนโพสต์ซ้ำในกลุ่ม
+    if not post_text:
+        print("⏭️ Facebook: ดึงข้อความโพสต์ล่าสุดไม่ได้ ข้ามการทำงานรอบนี้")
+        return None, None
 
     post_id = str(hash(post_text[:60]))
 
