@@ -1,14 +1,14 @@
 import os
 import json
-import google.generativeai as genai
+from groq import Groq
 import feedparser
 import requests
 from bs4 import BeautifulSoup
 from line import send_message
 
-# ตั้งค่า Google Gemini AI
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-genai.configure(api_key=GEMINI_API_KEY)
+# ตั้งค่า Groq Client โดยใช้ค่าจากระบบ Secrets
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+client = Groq(api_key=GROQ_API_KEY)
 
 # ชื่อไฟล์สำหรับบันทึกประวัติการส่งป้องกันส่งซ้ำ
 STATE_FILE = "state.json"
@@ -26,40 +26,43 @@ def save_state(state):
     with open(STATE_FILE, "w", encoding="utf-8") as f:
         json.dump(state, f, ensure_ascii=False, indent=2)
 
-def ask_gemini(prompt):
-    """ฟังก์ชันให้ Gemini ช่วยแปลและสรุปเนื้อหาเป็นภาษาไทย"""
+def ask_groq(prompt):
+    """ฟังก์ชันให้ Groq ช่วยแปลและสรุปเนื้อหาเป็นภาษาไทย"""
     try:
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        response = model.generate_content(prompt)
-        return response.text.strip()
+        completion = client.chat.completions.create(
+            model="llama3-8b-8192",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.5,
+            max_tokens=1024
+        )
+        return completion.choices[0].message.content.strip()
     except Exception as e:
-        print(f"❌ Gemini Error: {e}")
+        print(f"❌ Groq Error: {e}")
         return None
 
 def check_youtube():
     """ตรวจสอบวิดีโอใหม่จาก YouTube ช่อง Hay Day และส่งข้อความพร้อมรูปภาพ"""
     print("📺 Checking YouTube...")
-    # RSS Feed ของช่อง Hay Day Official
     channel_id = "UC6qZ8kWG0KstK-V6d74E8rw"
     feed_url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
     
     feed = feedparser.parse(feed_url)
     if not feed.entries:
         print("❌ ไม่สามารถดึงข้อมูล YouTube RSS ได้")
-        return None, None
+        return None, None, None
 
     latest_entry = feed.entries[0]
     video_id = latest_entry.yt_videoid
     video_title = latest_entry.title
     video_url = latest_entry.link
 
-    # 📸 ดึงลิงก์รูปหน้าปกวิดีโอ YouTube แบบความละเอียดสูง
+    # 📸 สร้างลิงก์รูปหน้าปกวิดีโอ YouTube อัตโนมัติจาก ID
     video_thumbnail = f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg"
 
     state = load_state()
     if state.get("last_video") == video_id:
         print("⏭️ YouTube: ไม่มีวิดีโอใหม่ (ส่งไปแล้ว)")
-        return None, None
+        return None, None, None
 
     print(f"🆕 พบวิดีโอใหม่: {video_title}")
     
@@ -74,7 +77,7 @@ def check_youtube():
     📝 รายละเอียด: [เขียนสรุปสั้นๆ 2-3 บรรทัดว่าคลิปนี้เกี่ยวกับอะไร]
     """
     
-    summary = ask_gemini(prompt)
+    summary = ask_groq(prompt)
     if not summary:
         summary = f"🌾 Hay Day (YouTube อัปเดต)\n📺 วิดีโอใหม่: {video_title}"
 
@@ -94,13 +97,11 @@ def check_facebook():
         r = requests.get(page_url, headers=headers, timeout=15)
         soup = BeautifulSoup(r.text, 'html.parser')
         
-        # ค้นหาโพสต์ล่าสุด
         post_element = soup.find('div', {'data-ft': True})
         if not post_element:
             print("❌ ไม่พบโพสต์บนหน้า Facebook Page")
-            return None, None
+            return None, None, None
 
-        # แกะ ID โพสต์
         try:
             ft_data = json.loads(post_element['data-ft'])
             post_id = ft_data.get('top_level_post_id')
@@ -110,12 +111,11 @@ def check_facebook():
         state = load_state()
         if state.get("last_fb_post") == post_id:
             print("⏭️ Facebook: ไม่มีโพสต์ใหม่ (ส่งไปแล้ว)")
-            return None, None
+            return None, None, None
 
-        # แกะเนื้อหาข้อความ
         post_text = post_element.text.strip()
         
-        # 📸 ค้นหาลิงก์รูปภาพประกอบโพสต์
+        # 📸 ค้นหาลิงก์รูปภาพจากโพสต์ Facebook
         fb_image = None
         img_tag = post_element.find('img')
         if img_tag and img_tag.get('src'):
@@ -136,7 +136,7 @@ def check_facebook():
         🎯 คำแนะนำสำหรับผู้เล่น: [ทริคเล็กๆ หรือสิ่งที่ต้องทำในเกมจากโพสต์นี้]
         """
         
-        summary = ask_gemini(prompt)
+        summary = ask_groq(prompt)
         if not summary:
             summary = f"🌾 Hay Day (Facebook อัปเดต)\n📢 โพสต์ใหม่: {post_text[:200]}..."
 
@@ -147,30 +147,28 @@ def check_facebook():
         
     except Exception as e:
         print(f"❌ Facebook Scraping Error: {e}")
-        return None, None
+        return None, None, None
 
 def main():
     print("====================================")
-    print("🐔 Hay Day Home Bot (YouTube & Facebook)")
+    print("🐔 Hay Day Home Bot (Groq AI Version)")
     print("====================================")
     
     state = load_state()
     state_changed = False
 
-    # 1. รันระบบตรวจสอบ YouTube
+    # 1. ตรวจสอบ YouTube
     yt_message, yt_image, yt_id = check_youtube()
     if yt_message:
-        # 🚀 ส่งข้อความพร้อมรูปภาพเข้าไลน์กลุ่ม
         send_message(yt_message, image_url=yt_image)
         state["last_video"] = yt_id
         state_changed = True
         print("✅ ทำงานฝั่ง YouTube สำเร็จ")
     print("------------------------------------")
 
-    # 2. รันระบบตรวจสอบ Facebook
+    # 2. ตรวจสอบ Facebook
     fb_message, fb_image, fb_id = check_facebook()
     if fb_message:
-        # 🚀 ส่งข้อความพร้อมรูปภาพเข้าไลน์กลุ่ม
         send_message(fb_message, image_url=fb_image)
         state["last_fb_post"] = fb_id
         state_changed = True
