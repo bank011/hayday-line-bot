@@ -6,11 +6,10 @@ import requests
 from bs4 import BeautifulSoup
 from line import send_message
 
-# ตั้งค่า Groq Client โดยใช้ค่าจากระบบ Secrets
+# ตั้งค่า Groq Client
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 client = Groq(api_key=GROQ_API_KEY)
 
-# ชื่อไฟล์สำหรับบันทึกประวัติการส่งป้องกันส่งซ้ำ
 STATE_FILE = "state.json"
 
 def load_state():
@@ -27,7 +26,6 @@ def save_state(state):
         json.dump(state, f, ensure_ascii=False, indent=2)
 
 def ask_groq(prompt):
-    """ฟังก์ชันให้ Groq ช่วยแปลและสรุปเนื้อหาเป็นภาษาไทย"""
     try:
         completion = client.chat.completions.create(
             model="llama3-8b-8192",
@@ -41,12 +39,19 @@ def ask_groq(prompt):
         return None
 
 def check_youtube():
-    """ตรวจสอบวิดีโอใหม่จาก YouTube ช่อง Hay Day และส่งข้อความพร้อมรูปภาพ"""
     print("📺 Checking YouTube...")
     channel_id = "UC6qZ8kWG0KstK-V6d74E8rw"
     feed_url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
     
-    feed = feedparser.parse(feed_url)
+    # ส่ง User-Agent เพื่อป้องกันโดนบล็อกการดึง RSS
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+    try:
+        response = requests.get(feed_url, headers=headers, timeout=15)
+        feed = feedparser.parse(response.content)
+    except Exception as e:
+        print(f"❌ YouTube Request Error: {e}")
+        return None, None, None
+
     if not feed.entries:
         print("❌ ไม่สามารถดึงข้อมูล YouTube RSS ได้")
         return None, None, None
@@ -56,12 +61,12 @@ def check_youtube():
     video_title = latest_entry.title
     video_url = latest_entry.link
 
-    # 📸 สร้างลิงก์รูปหน้าปกวิดีโอ YouTube อัตโนมัติจาก ID
-    video_thumbnail = f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg"
+    # 📸 ดึงลิงก์รูปหน้าปกวิดีโอ (Thumbnail) ความละเอียดสูงสูงสุด
+    video_thumbnail = f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg"
 
     state = load_state()
     if state.get("last_video") == video_id:
-        print("⏭️ YouTube: ไม่มีวิดีโอใหม่ (ส่งไปแล้ว)")
+        print("⏭️ YouTube: ไม่มีวิดีโอใหม่")
         return None, None, None
 
     print(f"🆕 พบวิดีโอใหม่: {video_title}")
@@ -82,46 +87,49 @@ def check_youtube():
         summary = f"🌾 Hay Day (YouTube อัปเดต)\n📺 วิดีโอใหม่: {video_title}"
 
     message = f"{summary}\n\n🔗 รับชมวิดีโอฉบับเต็ม:\n{video_url}\n\n🤖 Powered by Hay Day AI News Bot"
-    
     return message, video_thumbnail, video_id
 
 def check_facebook():
-    """ตรวจสอบโพสต์ใหม่จากเพจ Facebook Hay Day และส่งข้อความพร้อมรูปภาพ"""
     print("📖 Checking Facebook...")
-    page_url = "https://m.facebook.com/haydayhome1/"
+    # ใช้ลิงก์แบบปกติแทน mobile เพื่อความเสถียรในการแกะ Open Graph รูปภาพ
+    page_url = "https://www.facebook.com/haydayhome1/"
     headers = {
-        "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept-Language": "th-TH,th;q=0.9"
     }
     
     try:
         r = requests.get(page_url, headers=headers, timeout=15)
         soup = BeautifulSoup(r.text, 'html.parser')
         
-        post_element = soup.find('div', {'data-ft': True})
-        if not post_element:
-            print("❌ ไม่พบโพสต์บนหน้า Facebook Page")
-            return None, None, None
+        # ดึงรูปภาพและเนื้อหาหลักจาก Meta Tags ที่ Facebook เตรียมไว้ให้ (แม่นยำที่สุด ไม่หลุดง่าย)
+        meta_title = soup.find("meta", property="og:title")
+        meta_desc = soup.find("meta", property="og:description")
+        meta_image = soup.find("meta", property="og:image")
+        
+        post_text = meta_desc["content"].strip() if meta_desc else ""
+        fb_image = meta_image["content"].strip() if meta_image else None
+        
+        if not post_text:
+            # แผนสำรองหากดึง og tags ไม่เจอ
+            post_element = soup.find('div', {'data-ft': True}) or soup.find('article')
+            if not post_element:
+                print("❌ ไม่พบโพสต์บนหน้า Facebook Page")
+                return None, None, None
+            post_text = post_element.text.strip()
+            img_tag = post_element.find('img')
+            if img_tag and img_tag.get('src'):
+                fb_image = img_tag['src']
 
-        try:
-            ft_data = json.loads(post_element['data-ft'])
-            post_id = ft_data.get('top_level_post_id')
-        except:
-            post_id = str(hash(post_element.text))
+        # สร้าง ID จำลองจากเนื้อหา
+        post_id = str(hash(post_text[:50]))
 
         state = load_state()
         if state.get("last_fb_post") == post_id:
-            print("⏭️ Facebook: ไม่มีโพสต์ใหม่ (ส่งไปแล้ว)")
+            print("⏭️ Facebook: ไม่มีโพสต์ใหม่")
             return None, None, None
 
-        post_text = post_element.text.strip()
-        
-        # 📸 ค้นหาลิงก์รูปภาพจากโพสต์ Facebook
-        fb_image = None
-        img_tag = post_element.find('img')
-        if img_tag and img_tag.get('src'):
-            fb_image = img_tag['src']
-
-        print(f"🆕 พบโพสต์ Facebook ใหม่ ID: {post_id}")
+        print(f"🆕 พบโพสต์ Facebook ใหม่")
         
         prompt = f"""
         คุณคือผู้ช่วยสรุปข่าวเกม Hay Day ภาษาไทย
@@ -140,9 +148,7 @@ def check_facebook():
         if not summary:
             summary = f"🌾 Hay Day (Facebook อัปเดต)\n📢 โพสต์ใหม่: {post_text[:200]}..."
 
-        post_link = f"https://m.facebook.com/story.php?story_fbid={post_id}&id=haydayhome1"
-        message = f"{summary}\n\n🔗 ลิงก์โพสต์ต้นฉบับ:\n{post_link}\n\n🤖 Powered by Hay Day AI News Bot"
-        
+        message = f"{summary}\n\n🔗 ลิงก์เพจต้นฉบับ:\n{page_url}\n\n🤖 Powered by Hay Day AI News Bot"
         return message, fb_image, post_id
         
     except Exception as e:
