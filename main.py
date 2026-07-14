@@ -27,9 +27,9 @@ def save_state(state):
 
 def ask_groq(prompt):
     try:
-        # เปลี่ยนไปใช้โมดูลเวอร์ชันปัจจุบันที่รองรับ
+        # เปลี่ยนโมเดลเป็น llama-3.1-8b-instant ที่เปิดใช้งานตามปกติและเสถียร
         completion = client.chat.completions.create(
-            model="llama-3-3-70b-specdec",  
+            model="llama-3.1-8b-instant",  
             messages=[{"role": "user", "content": prompt}],
             temperature=0.5,
             max_tokens=1024
@@ -66,7 +66,7 @@ def check_youtube():
         video_title = "Get 500 FREE Golden Keys in Hay Day! 🔑 Limited Time!"
         video_url = f"https://www.youtube.com/watch?v={video_id}"
 
-    # ดึงลิงก์รูปหน้าปกวิดีโอ YouTube
+    # 📸 ปรับใช้ hqdefault.jpg เพื่อให้มีรูปภาพแสดงผลได้แน่นอนกับทุกวิดีโอ
     video_thumbnail = f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg"
 
     state = load_state()
@@ -122,7 +122,7 @@ def check_facebook():
     if not post_text:
         post_text = "Get ready farmers for the x2 XP Truck event this Wednesday, July 15th! 🚚🌾"
     
-    # ดึงรูปโปรไฟล์เพจแบบสาธารณะของ Facebook มาแสดงผลแทนเพื่อแก้ปัญหารูปไม่ขึ้น
+    # ดึงรูปโปรไฟล์เพจแบบสาธารณะของ Facebook มาแสดงผลแทนเพื่อแก้ปัญหารูปจากโพสต์ไม่ขึ้น
     fb_image = f"https://graph.facebook.com/haydayhome1/picture?type=large"
 
     post_id = str(hash(post_text[:50]))
