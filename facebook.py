@@ -2,7 +2,7 @@ import feedparser
 
 def get_latest_fb_post():
     # เปลี่ยนเป็น URL RSS ของเพจ Facebook ที่คุณไปแปลงมา
-    rss_url = "https://fetchrss.com/rss/your_facebook_page_feed" 
+    rss_url = "https://rss.app/feeds/1zNu9ZwSfaIDdaUs.xml" 
     feed = feedparser.parse(rss_url)
     
     if not feed.entries:
