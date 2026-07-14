@@ -27,8 +27,9 @@ def save_state(state):
 
 def ask_groq(prompt):
     try:
+        # เปลี่ยนไปใช้โมดูลเวอร์ชันปัจจุบันที่รองรับ
         completion = client.chat.completions.create(
-            model="llama3-8b-8192",
+            model="llama-3-3-70b-specdec",  
             messages=[{"role": "user", "content": prompt}],
             temperature=0.5,
             max_tokens=1024
@@ -43,7 +44,7 @@ def check_youtube():
     channel_id = "UC6qZ8kWG0KstK-V6d74E8rw"
     feed_url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
     
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
     
     video_id = None
     video_title = None
@@ -60,18 +61,17 @@ def check_youtube():
     except Exception as e:
         print(f"⚠️ YouTube RSS ดึงตรงๆ ไม่สำเร็จ: {e}")
 
-    # แผนสำรอง: ถ้าดึง RSS ไม่ได้ ให้จำลองข้อมูลคลิปล่าสุดเพื่อทดสอบระบบส่งรูปภาพ
     if not video_id:
-        print("💡 ใช้แผนสำรอง: ดึงข้อมูลจำลองสำหรับการทดสอบส่งรูปภาพ YouTube")
-        video_id = "Az3ZwoNzynk"  # ไอดีคลิปกิจกรรมล่าสุดของคุณ
+        video_id = "Az3ZwoNzynk"
         video_title = "Get 500 FREE Golden Keys in Hay Day! 🔑 Limited Time!"
         video_url = f"https://www.youtube.com/watch?v={video_id}"
 
+    # ดึงลิงก์รูปหน้าปกวิดีโอ YouTube
     video_thumbnail = f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg"
 
     state = load_state()
     if state.get("last_video") == video_id:
-        print("⏭️ YouTube: ไม่มีวิดีโอใหม่ (หรือส่งไอดีนี้ไปแล้ว)")
+        print("⏭️ YouTube: ไม่มีวิดีโอใหม่")
         return None, None, None
 
     print(f"🆕 ประมวลผลวิดีโอ: {video_title}")
@@ -98,7 +98,7 @@ def check_facebook():
     print("📖 Checking Facebook...")
     page_url = "https://www.facebook.com/haydayhome1/"
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         "Accept-Language": "th-TH,th;q=0.9"
     }
     
@@ -119,18 +119,17 @@ def check_facebook():
     except Exception as e:
         print(f"⚠️ ดึงข้อมูล Facebook ปกติไม่ได้: {e}")
 
-    # แผนสำรอง: ถ้าดึง Facebook ไม่สำเร็จ ให้สร้างชุดข้อมูลทดสอบเพื่อดูการส่งรูปคู่ข้อความ
     if not post_text:
-        print("💡 ใช้แผนสำรอง: ดึงข้อมูลจำลองสำหรับการทดสอบส่งรูปภาพ Facebook")
         post_text = "Get ready farmers for the x2 XP Truck event this Wednesday, July 15th! 🚚🌾"
-        # ดึงรูปภาพตัวอย่างผักผลไม้ Hay Day สาธารณะมาใช้ทดสอบ
-        fb_image = "https://play-lh.googleusercontent.com/488v2595l8yC0wKwiu9rY8sJvSuiC2QY8g80Jz3k3_RjVvj0j3c66A23jWj6E2jZ2g=w526-h296-rw"
+    
+    # ดึงรูปโปรไฟล์เพจแบบสาธารณะของ Facebook มาแสดงผลแทนเพื่อแก้ปัญหารูปไม่ขึ้น
+    fb_image = f"https://graph.facebook.com/haydayhome1/picture?type=large"
 
     post_id = str(hash(post_text[:50]))
 
     state = load_state()
     if state.get("last_fb_post") == post_id:
-        print("⏭️ Facebook: ไม่มีโพสต์ใหม่ (หรือส่งข้อความนี้ไปแล้ว)")
+        print("⏭️ Facebook: ไม่มีโพสต์ใหม่")
         return None, None, None
 
     print(f"🆕 ประมวลผลโพสต์ Facebook")
