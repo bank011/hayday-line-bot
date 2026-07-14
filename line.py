@@ -9,15 +9,21 @@ def send_message(text):
         print("❌ LINE ERROR: ไม่พบรหัส MPW_API_KEY ในระบบ Secrets")
         return
 
-    # ⚠️ แก้ไขลิงก์เป็น Endpoint ที่ถูกต้องสำหรับระบบส่ง Notify
-    url = "https://mpw-lineauto.com/api/notify"
+    # ลิงก์ปลายทางที่ถูกต้องตามเอกสาร API ของเว็บ
+    url = "https://mpw-lineauto.com/api/v1/send"
+    
+    # ⚠️ ให้เปลี่ยนตัวเลขด้านล่างนี้เป็น ID บัญชี LINE จริงของคุณที่ปรากฏในหน้าเว็บ (เมนู ตั้งค่าบัญชี LINE)
+    LINE_ACCOUNT_ID = 1 
     
     headers = {
-        "Authorization": f"Bearer {MPW_API_KEY}",
+        "X-API-Key": MPW_API_KEY,
         "Content-Type": "application/json"
     }
     
+    # โครงสร้าง Data ที่ระบบต้องการ
     payload = {
+        "line_account_id": LINE_ACCOUNT_ID,
+        "search_terms": ["วังเวง ฟาร์ม"],
         "message": text
     }
 
@@ -30,7 +36,7 @@ def send_message(text):
         )
 
         if r.status_code == 200:
-            print("✅ LINE SUCCESS: ส่งข่าวสารเข้ากลุ่มไลน์สำเร็จ (ผ่าน MPW)")
+            print("✅ LINE SUCCESS: ส่งข่าวสารเข้าคิวรอส่งในกลุ่มไลน์สำเร็จ")
         else:
             print(f"❌ LINE ERROR: รหัสข้อผิดพลาด {r.status_code}")
             print(r.text)
