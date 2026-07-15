@@ -41,7 +41,7 @@ def ask_groq(prompt):
 def check_facebook():
     print("📖 Checking Facebook for Latest Events...")
     # ดึงข้อมูลผ่าน Feed ล่าสุดที่เสถียร
-    fb_feed_url = "https://rss.app/feeds/v1/web/r1v8k7y3q8p2k5z8" 
+    fb_feed_url = "https://rss.app/feeds/1zNu9ZwSfaIDdaUs.xml" 
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
     
     post_text = ""
