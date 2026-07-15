@@ -39,9 +39,9 @@ def ask_groq(prompt):
         return None
 
 def check_facebook():
-    print("📖 Checking Facebook for Latest Events...")
-    # ดึงข้อมูลผ่าน Feed ล่าสุดที่เสถียร
-    fb_feed_url = "https://rss.app/feeds/1zNu9ZwSfaIDdaUs.xml" 
+    print("📖 Checking Facebook for Real Posts...")
+    # ใช้ลิงก์ฟีด XML ปัจจุบันของคุณ
+    fb_feed_url = "https://rss.app/feeds/1zNu9ZwSfalDdaUs.xml" 
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
     
     post_text = ""
@@ -50,59 +50,55 @@ def check_facebook():
     try:
         response = requests.get(fb_feed_url, headers=headers, timeout=15)
         feed = feedparser.parse(response.content)
+        
         if feed.entries:
-            latest_entry = feed.entries[0]
-            post_url = latest_entry.get("link", post_url)
-            
-            soup_content = BeautifulSoup(latest_entry.get("summary", latest_entry.get("description", "")), "html.parser")
-            post_text = soup_content.get_text().strip()
+            for entry in feed.entries:
+                soup_content = BeautifulSoup(entry.get("summary", entry.get("description", "")), "html.parser")
+                text_check = soup_content.get_text().strip()
+                
+                if "Welcome to Hay Day Home" in text_check or "Official Supercell Creator" in text_check or "เป็นหน้าแฟนเพจ" in text_check:
+                    print("⏭️ ข้ามข้อมูลแนะนำตัวเพจหลัก...")
+                    continue
+                
+                if len(text_check) > 5:
+                    post_text = text_check
+                    post_url = entry.get("link", post_url)
+                    break
     except Exception as e:
         print(f"⚠️ ดึงข้อมูลฟีดล้มเหลว: {e}")
 
-    # หากดึงผ่าน Feed ไม่สำเร็จ ให้ลองดึงจากหน้าเว็บตรง
     if not post_text:
-        try:
-            r = requests.get("https://www.facebook.com/haydayhome1", headers=headers, timeout=15)
-            soup = BeautifulSoup(r.text, 'html.parser')
-            meta_desc = soup.find("meta", property="og:description")
-            if meta_desc:
-                post_text = meta_desc["content"].strip()
-        except:
-            pass
-
-    # ดักจับถ้าไม่มีข้อความ หรือเป็นแค่คำอธิบายเพจทั่วไปให้ข้ามรอบ
-    if not post_text or "เป็นหน้าแฟนเพจ" in post_text or "หน้าแฟนเพจที่มีเนื้อหา" in post_text:
         print("⏭️ Facebook: ไม่พบเนื้อหาโพสต์กิจกรรมใหม่ ข้ามรอบนี้")
         return None, None
 
-    # สร้างรหัสตรวจสอบจากเนื้อหาโพสต์เพื่อป้องกันการส่งข้อความซ้ำ
     post_id = str(hash(post_url + post_text[:40]))
 
     state = load_state()
     if state.get("last_fb_post") == post_id:
-        print("⏭️ Facebook: โพสต์กิจกรรมล่าสุดนี้เคยส่งเข้ากลุ่มแล้ว")
+        print("⏭️ Facebook: โพสต์ล่าสุดนี้เคยส่งเข้ากลุ่มไปแล้ว")
         return None, None
 
-    print(f"🆕 พบโพสต์กิจกรรมใหม่! กำลังส่งให้ Groq AI แปลผล...")
+    print(f"🆕 พบโพสต์กิจกรรมของจริงแล้ว! กำลังส่งให้ Groq AI แปลผล...")
     
     prompt = f"""
     คุณคือผู้ช่วยสรุปข่าวสารและกิจกรรมเกม Hay Day ภาษาไทย
-    โปรดแปลและสรุปเนื้อหาจากโพสต์ Facebook นี้ให้แฟนเพจชาวไทยอ่านเข้าใจง่ายและกระชับ:
+    โปรดแปลและสรุปเนื้อหาจากโพสต์ของเพจทางการนี้ให้แฟนเพจชาวไทยอ่านเข้าใจง่าย กระชับ และถูกต้อง:
     "{post_text[:800]}"
     
     กำหนดรูปแบบผลลัพธ์ใน LINE ให้สวยงาม:
-    🌾 Hay Day (Facebook อัปเดตกิจกรรม)
+    🌾 Hay Day Home (อัปเดตกิจกรรม)
     ----------------------------------
     📢 ข่าวสาร/กิจกรรม: [ชื่อกิจกรรมหรือหัวข้อภาษาไทยสรุปสั้นๆ]
-    📝 รายละเอียด: [เนื้อหาใจความสำคัญ 2-3 บรรทัด ว่าเป็นกิจกรรมอะไร วันไหน]
-    🎯 ทริคสำหรับผู้เล่น: [ทริคเล็กๆ หรือสิ่งที่ผู้เล่นต้องเตรียมตัวทำในเกม]
+    📝 รายละเอียด: [เนื้อหาใจความสำคัญย่อเหลือ 2-3 บรรทัด ว่าโพสต์นี้แจกอะไร เกิดอะไรขึ้น หรือแจ้งเรื่องอะไร]
+    🎯 ทริก/สิ่งที่ต้องรู้: [สิ่งที่ผู้เล่นต้องทำหรือเตรียมตัวจากโพสต์นี้]
     """
     
     summary = ask_groq(prompt)
     if not summary:
-        summary = f"🌾 Hay Day (Facebook อัปเดต)\n📢 โพสต์ใหม่: {post_text[:200]}..."
+        summary = f"🌾 Hay Day Home (อัปเดตกิจกรรม)\n📢 โพสต์ใหม่: {post_text[:200]}..."
 
-    message = f"{summary}\n\n🔗 ลิงก์โพสต์ต้นฉบับ:\n{post_url}\n\n🤖 Powered by Hay Day AI News Bot"
+    # ส่งเฉพาะข้อความสรุปและชื่อเพจ (ตัดส่วนแสดงลิงก์ URL ออกเรียบร้อย)
+    message = f"{summary}\n\n🤖 Powered by Hay Day AI News Bot"
     return message, post_id
 
 def main():
