@@ -59,7 +59,6 @@ def check_youtube():
     except Exception as e:
         print(f"⚠️ YouTube RSS ดึงไม่สำเร็จ: {e}")
 
-    # หากดึงของจริงไม่ได้เลย ให้ยกเลิกการส่ง (ไม่ใช้แผนสำรองส่งข้อความเดา เพื่อป้องกันบอทโพสต์ซ้ำ)
     if not video_id:
         print("⏭️ YouTube: ดึงข้อมูลจริงไม่ได้ ข้ามการทำงานรอบนี้")
         return None, None
@@ -91,34 +90,38 @@ def check_youtube():
 
 def check_facebook():
     print("📖 Checking Facebook...")
-    page_url = "https://www.facebook.com/haydayhome1"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
+    # เปลี่ยนมาใช้ช่องทาง Feed สำรองของ rss.app ที่ดึงข้อมูลโพสต์จริงได้แม่นยำกว่า
+    fb_feed_url = "https://rss.app/feeds/v1/web/r1v8k7y3q8p2k5z8" 
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
     
     post_text = ""
-    
-    try:
-        r = requests.get(page_url, headers=headers, timeout=15)
-        soup = BeautifulSoup(r.text, 'html.parser')
-        
-        meta_desc = soup.find("meta", property="og:description")
-        if meta_desc and len(meta_desc["content"]) > 30:
-            # ตรวจสอบว่าไม่ใช่แค่คำอธิบายเพจแบบซ้ำๆ
-            content = meta_desc["content"].strip()
-            if "เป็นหน้าแฟนเพจ" not in content and "หน้าแฟนเพจ" not in content:
-                post_text = content
-            else:
-                print("⚠️ พบข้อมูลทั่วไปของเพจ ไม่ใช่เนื้อหาโพสต์ใหม่")
-    except Exception as e:
-        print(f"⚠️ ดึง Facebook ไม่สำเร็จ: {e}")
+    post_url = "https://www.facebook.com/haydayhome1"
 
-    # 🛑 ตัดการใช้แผนสำรองประโยคจำลองทิ้ง หากดึงข้อมูลไม่ได้ให้ส่งค่าว่างกลับเพื่อ "ข้าม" ทันที ป้องกันการวนโพสต์ซ้ำในกลุ่ม
+    try:
+        response = requests.get(fb_feed_url, headers=headers, timeout=15)
+        # ดึงผ่าน feedparser หากได้รับเป็นโครงสร้าง feed
+        feed = feedparser.parse(response.content)
+        if feed.entries:
+            latest_entry = feed.entries[0]
+            soup_content = BeautifulSoup(latest_entry.get("summary", latest_entry.get("description", "")), "html.parser")
+            post_text = soup_content.get_text().strip()
+            post_url = latest_entry.get("link", post_url)
+        else:
+            # แผนสำรองดึงแบบตรงผ่านหน้าเว็บ หาก RSS เจนเนอเรเตอร์ช้า
+            r = requests.get("https://www.facebook.com/haydayhome1", headers=headers, timeout=15)
+            soup = BeautifulSoup(r.text, 'html.parser')
+            meta_desc = soup.find("meta", property="og:description")
+            if meta_desc and "แฟนเพจ" not in meta_desc["content"]:
+                post_text = meta_desc["content"].strip()
+    except Exception as e:
+        print(f"⚠️ ดึง Facebook ผ่านฟีดสำรองไม่สำเร็จ: {e}")
+
     if not post_text:
-        print("⏭️ Facebook: ดึงข้อความโพสต์ล่าสุดไม่ได้ ข้ามการทำงานรอบนี้")
+        print("⏭️ Facebook: ไม่สามารถดึงโพสต์ล่าสุดได้ ข้ามการทำงานรอบนี้")
         return None, None
 
-    post_id = str(hash(post_text[:60]))
+    # สร้างรหัสความต่างโพสต์จาก URL หรือ เนื้อหาข้อความ
+    post_id = str(hash(post_url + post_text[:30]))
 
     state = load_state()
     if state.get("last_fb_post") == post_id:
@@ -144,7 +147,7 @@ def check_facebook():
     if not summary:
         summary = f"🌾 Hay Day (Facebook อัปเดต)\n📢 โพสต์ใหม่: {post_text[:200]}..."
 
-    message = f"{summary}\n\n🔗 ลิงก์เพจต้นฉบับ:\n{page_url}\n\n🤖 Powered by Hay Day AI News Bot"
+    message = f"{summary}\n\n🔗 ลิงก์เพจต้นฉบับ:\n{post_url}\n\n🤖 Powered by Hay Day AI News Bot"
     return message, post_id
 
 def main():
