@@ -39,46 +39,45 @@ def ask_groq(prompt):
         return None
 
 def check_facebook_rss():
-    print("📖 Checking Facebook via RSS.app Current Link...")
-    # เปลี่ยนมาใช้ลิงก์ XML ใหม่ตามหน้าจอของคุณ
-    fb_feed_url = "https://rss.app/feeds/1zNu9ZwSfaIDdaUs.xml" 
+    print("📖 Checking Facebook via RSS.app XML Link...")
+    fb_feed_url = "https://rss.app/feeds/1zNu9ZwSfalDdaUs.xml" 
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
     
     post_text = ""
-    post_url = "https://www.facebook.com/haydayhome1"
+    post_unique_key = ""
 
     try:
         response = requests.get(fb_feed_url, headers=headers, timeout=15)
         feed = feedparser.parse(response.content)
         
         if feed.entries:
-            # วนลูปเช็คเพื่อข้ามข้อมูลแนะนำตัวเพจหลักอย่างเดียว ส่วนโพสต์กิจกรรมทั่วไปเอาหมด
             for entry in feed.entries:
                 soup_content = BeautifulSoup(entry.get("summary", entry.get("description", "")), "html.parser")
                 text_check = soup_content.get_text().strip()
                 
+                # ข้ามข้อมูลทั่วไปของเพจ
                 if "Welcome to Hay Day Home" in text_check or "Official Supercell Creator" in text_check or "เป็นหน้าแฟนเพจ" in text_check:
-                    print("固定 ข้ามข้อมูลแนะนำตัวเพจหลัก...")
+                    print("⏭️ ข้ามข้อมูลแนะนำตัวเพจหลัก...")
                     continue
                 
-                # หยิบโพสต์แรกสุดที่เจอในฟีดหลังจากหักข้อมูลแนะนำตัวออก
                 if len(text_check) > 5:
                     post_text = text_check
-                    post_url = entry.get("link", post_url)
+                    # 🔒 ใช้ค่า ID แท้ของระบบ RSS หรือ ลิงก์ยาวตัวเต็มมาทำคีย์ล็อก เพื่อไม่ให้เกิดรหัสซ้ำ
+                    post_unique_key = entry.get("id", entry.get("link", text_check[:150]))
                     break
     except Exception as e:
         print(f"⚠️ ดึงข้อมูลฟีดล้มเหลว: {e}")
 
     if not post_text:
-        print("⏭️ Facebook: ไม่พบเนื้อหาโพสต์กิจกรรมใหม่ในฟีด ข้ามรอบนี้")
+        print("⏭️ Facebook: ไม่พบเนื้อหาโพสต์ใหม่ ข้ามรอบนี้")
         return None, None
 
-    # ล็อกเฉพาะโพสต์ที่เคยส่งไปแล้วเพื่อป้องกันส่งซ้ำ
-    post_id = str(hash(post_url + post_text[:40]))
+    # แปลงคีย์ล็อกโพสต์ให้อยู่ในรูปแบบไอดีปลอดภัย
+    post_id = str(hash(post_unique_key))
 
     state = load_state()
     if state.get("last_fb_post") == post_id:
-        print("⏭️ Facebook: โพสต์ล่าสุดนี้เคยส่งเข้ากลุ่มไปแล้ว (ซ้ำ)")
+        print("⏭️ Facebook: โพสต์ล่าสุดนี้เคยส่งเข้ากลุ่มไปแล้ว (ล็อกอยู่)")
         return None, None
 
     print(f"🆕 พบโพสต์ใหม่จาก RSS! กำลังส่งให้ Groq AI แปลผล...")
@@ -100,13 +99,12 @@ def check_facebook_rss():
     if not summary:
         summary = f"🌾 Hay Day Home (อัปเดตโพสต์ใหม่)\n📢 โพสต์ใหม่: {post_text[:200]}..."
 
-    # แสดงเฉพาะชื่อเพจและข้อมูลที่แปล (ตัดลิงก์ URL ออกตามสั่ง)
     message = f"{summary}\n\n🤖 Powered by Hay Day AI News Bot"
     return message, post_id
 
 def main():
     print("====================================")
-    print("🐔 Hay Day Bot (RSS.app Link Mode)")
+    print("🐔 Hay Day Bot (RSS.app Strict Lock Mode)")
     print("====================================")
     
     fb_message, fb_id = check_facebook_rss()
