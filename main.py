@@ -2,12 +2,12 @@ import os
 import json
 from groq import Groq
 import requests
-from bs4 import BeautifulSoup
 from line import send_message
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
-client = Groq(api_key=GROQ_API_KEY)
+APIFY_TOKEN = os.environ.get("APIFY_TOKEN", "") # ใส่ Token จาก Apify ใน Secrets
 
+client = Groq(api_key=GROQ_API_KEY)
 STATE_FILE = "state.json"
 
 def load_state():
@@ -36,53 +36,47 @@ def ask_groq(prompt):
         print(f"❌ Groq Error: {e}")
         return None
 
-def fetch_facebook_mobile():
-    # ใช้ Mobile Basic User Agent เพื่อให้ Facebook ส่ง HTML แบบเรียบง่ายที่สุดมาให้
-    url = "https://mbasic.facebook.com/haydayhome1"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
-        "Accept-Language": "en-US,en;q=0.9"
-    }
-    
-    try:
-        print(f"📖 กำลังสแกนหน้าเพจโดยตรงผ่าน Mobile Mode...")
-        r = requests.get(url, headers=headers, timeout=15)
-        if r.status_code != 200:
-            print(f"⚠️ ไม่สามารถเข้าถึงหน้าเพจได้ Status: {r.status_code}")
-            return None, None
-            
-        soup = BeautifulSoup(r.text, 'html.parser')
-        
-        # ค้นหาโพสต์บน mbasic facebook
-        articles = soup.find_all('article') or soup.find_all('div', {'role': 'article'})
-        
-        for article in articles:
-            text = article.get_text().strip()
-            # ตัดข้อมูลสั้นหรือคำแนะนำตัวทั่วไปออก
-            if len(text) > 30 and "Welcome to Hay Day Home" not in text:
-                # สกัดเอาเฉพาะเนื้อหาหลัก
-                clean_text = " ".join(text.split())
-                print(f"✅ พบโพสต์ล่าสุด: {clean_text[:60]}...")
-                return clean_text, clean_text[:100]
+def fetch_via_apify():
+    print("📖 กำลังดึงข้อมูลโพสต์ล่าสุดผ่าน Apify Service...")
+    if not APIFY_TOKEN:
+        print("⚠️ ยังไม่ได้ใส่ APIFY_TOKEN ในระบบ")
+        return None, None
 
+    # เรียกใช้ Apify Facebook Page Scraper Actor
+    url = f"https://api.apify.com/v2/acts/apify~facebook-page-scraper/run-sync-get-dataset-items?token={APIFY_TOKEN}"
+    payload = {
+        "startUrls": [{"url": "https://www.facebook.com/haydayhome1"}],
+        "maxPosts": 1
+    }
+
+    try:
+        r = requests.post(url, json=payload, timeout=60)
+        if r.status_code == 201 or r.status_code == 200:
+            data = r.json()
+            if data and len(data) > 0:
+                post = data[0]
+                post_text = post.get("text", "") or post.get("caption", "")
+                post_url = post.get("url", "") or post.get("postUrl", "")
+                print(f"✅ Apify ดึงโพสต์สำเร็จ: {post_text[:60]}...")
+                return post_text, post_url
     except Exception as e:
-        print(f"⚠️ เกิดข้อผิดพลาดในการดึงข้อมูล: {e}")
+        print(f"⚠️ Apify Error: {e}")
         
     return None, None
 
 def main():
     print("====================================")
-    print("🐔 Hay Day Bot (Mobile Scraper Mode)")
+    print("🐔 Hay Day Bot (Apify Cloud Scraper)")
     print("====================================")
     
-    post_text, raw_key = fetch_facebook_mobile()
+    post_text, post_url = fetch_via_apify()
     
     if not post_text:
         print("⏭️ ไม่พบเนื้อหาโพสต์ใหม่ ข้ามรอบนี้")
         print("====================================")
         return
 
-    post_id = str(hash(raw_key))
+    post_id = str(hash(post_url or post_text[:100]))
     state = load_state()
     
     if state.get("last_fb_post") == post_id:
