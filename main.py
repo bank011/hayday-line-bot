@@ -38,49 +38,54 @@ def ask_groq(prompt):
         print(f"❌ Groq Error: {e}")
         return None
 
-def check_facebook_rss():
-    print("📖 Checking Facebook via RSS.app XML Link...")
-    fb_feed_url = "https://rss.app/feeds/1zNu9ZwSfalDdaUs.xml" 
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+def fetch_feed_data():
+    # รายชื่อแหล่งฟีดเรียงตามความเร็ว (RSSHub ก่อน ถ้าไม่ผ่านจะไป RSS.app)
+    feed_urls = [
+        "https://rsshub.app/facebook/page/haydayhome1",
+        "https://rss.app/feeds/1zNu9ZwSfalDdaUs.xml"
+    ]
     
-    post_text = ""
-    post_unique_key = ""
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
-    try:
-        response = requests.get(fb_feed_url, headers=headers, timeout=15)
-        feed = feedparser.parse(response.content)
-        
-        if feed.entries:
-            for entry in feed.entries:
-                soup_content = BeautifulSoup(entry.get("summary", entry.get("description", "")), "html.parser")
-                text_check = soup_content.get_text().strip()
-                
-                # ข้ามข้อมูลทั่วไปของเพจ
-                if "Welcome to Hay Day Home" in text_check or "Official Supercell Creator" in text_check or "เป็นหน้าแฟนเพจ" in text_check:
-                    print("⏭️ ข้ามข้อมูลแนะนำตัวเพจหลัก...")
-                    continue
-                
-                if len(text_check) > 5:
-                    post_text = text_check
-                    # 🔒 ใช้ค่า ID แท้ของระบบ RSS หรือ ลิงก์ยาวตัวเต็มมาทำคีย์ล็อก เพื่อไม่ให้เกิดรหัสซ้ำ
-                    post_unique_key = entry.get("id", entry.get("link", text_check[:150]))
-                    break
-    except Exception as e:
-        print(f"⚠️ ดึงข้อมูลฟีดล้มเหลว: {e}")
+    for url in feed_urls:
+        print(f"📖 กำลังลองดึงข้อมูลจาก: {url}...")
+        try:
+            response = requests.get(url, headers=headers, timeout=12)
+            if response.status_code == 200:
+                feed = feedparser.parse(response.content)
+                if feed.entries:
+                    for entry in feed.entries:
+                        soup_content = BeautifulSoup(entry.get("summary", entry.get("description", "")), "html.parser")
+                        text_check = soup_content.get_text().strip()
+                        
+                        # ข้ามข้อมูลแนะนำตัวเพจ
+                        if "Welcome to Hay Day Home" in text_check or "Official Supercell Creator" in text_check:
+                            continue
+                        
+                        if len(text_check) > 5:
+                            unique_key = entry.get("id", entry.get("link", text_check[:100]))
+                            print("✅ ดึงข้อมูลสำเร็จ!")
+                            return text_check, unique_key
+        except Exception as e:
+            print(f"⚠️ ลองฟีดนี้ไม่สำเร็จ: {e}")
+
+    return None, None
+
+def check_facebook():
+    post_text, post_unique_key = fetch_feed_data()
 
     if not post_text:
-        print("⏭️ Facebook: ไม่พบเนื้อหาโพสต์ใหม่ ข้ามรอบนี้")
+        print("⏭️ ไม่พบเนื้อหาโพสต์ใหม่จากทุกแหล่ง ข้ามรอบนี้")
         return None, None
 
-    # แปลงคีย์ล็อกโพสต์ให้อยู่ในรูปแบบไอดีปลอดภัย
     post_id = str(hash(post_unique_key))
 
     state = load_state()
     if state.get("last_fb_post") == post_id:
-        print("⏭️ Facebook: โพสต์ล่าสุดนี้เคยส่งเข้ากลุ่มไปแล้ว (ล็อกอยู่)")
+        print("⏭️ โพสต์ล่าสุดนี้เคยส่งเข้ากลุ่มไปแล้ว (ล็อกอยู่)")
         return None, None
 
-    print(f"🆕 พบโพสต์ใหม่จาก RSS! กำลังส่งให้ Groq AI แปลผล...")
+    print(f"🆕 พบโพสต์ใหม่! กำลังส่งให้ AI สรุป...")
     
     prompt = f"""
     คุณคือผู้ช่วยสรุปข่าวสารและกิจกรรมเกม Hay Day ภาษาไทย
@@ -104,10 +109,10 @@ def check_facebook_rss():
 
 def main():
     print("====================================")
-    print("🐔 Hay Day Bot (RSS.app Strict Lock Mode)")
+    print("🐔 Hay Day Bot (Multi-Feed Fallback Mode)")
     print("====================================")
     
-    fb_message, fb_id = check_facebook_rss()
+    fb_message, fb_id = check_facebook()
     if fb_message:
         send_message(fb_message)
         state = load_state()
