@@ -1,5 +1,6 @@
 import os
 import json
+import hashlib
 from groq import Groq
 import requests
 from line import send_message
@@ -23,9 +24,12 @@ def save_state(state):
     with open(STATE_FILE, "w", encoding="utf-8") as f:
         json.dump(state, f, ensure_ascii=False, indent=2)
 
+def generate_post_id(text):
+    # ใช้ MD5 เพื่อให้รหัส Hash คงเดิมเสมอไม่ว่าจะรันรอบไหน
+    return hashlib.md5(text.encode("utf-8")).hexdigest()
+
 def ask_groq(prompt):
     try:
-        # ใช้โมเดล 70B เพื่อภาษาไทยที่เป๊ะ สละสลวย และไม่มีอักขระเพี้ยน
         completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile",  
             messages=[{"role": "user", "content": prompt}],
@@ -46,7 +50,7 @@ def fetch_all_recent_posts():
     url = f"https://api.apify.com/v2/acts/apify~facebook-posts-scraper/run-sync-get-dataset-items?token={APIFY_TOKEN}"
     payload = {
         "startUrls": [{"url": "https://www.facebook.com/haydayhome1"}],
-        "resultsLimit": 5  # ดึง 5 โพสต์ล่าสุดมาสแกนหาโพสต์ใหม่
+        "resultsLimit": 5
     }
 
     posts_list = []
@@ -78,7 +82,7 @@ def fetch_all_recent_posts():
 
 def main():
     print("====================================")
-    print("🐔 Hay Day Bot (High-Quality Thai Translation)")
+    print("🐔 Hay Day Bot (MD5 Deduplication Mode)")
     print("====================================")
     
     posts = fetch_all_recent_posts()
@@ -94,11 +98,10 @@ def main():
     target_post = None
     target_post_id = ""
 
-    # วนลูปเช็คโพสต์ตั้งแต่ใหม่สุดไปเก่าสุด
+    # ตรวจสอบหาโพสต์ใหม่โดยเทียบ MD5 ID
     for p in posts:
-        current_id = str(hash(p["key"]))
+        current_id = generate_post_id(p["key"])
         
-        # ถ้าเจอโพสต์ที่ล็อกไว้ใน state แสดงว่าเคยส่งแล้ว ให้หยุดเช็ค
         if current_id == last_saved_id:
             break
             
@@ -107,12 +110,11 @@ def main():
             target_post_id = current_id
 
     if not target_post:
-        print("⏭️ ทุกโพสต์ล่าสุดบนหน้าเพจเคยถูกส่งเข้า LINE แล้ว (ไม่มีโพสต์ใหม่)")
+        print("⏭️ ทุกโพสต์ล่าสุดเคยถูกส่งเข้า LINE แล้ว (ข้ามการส่งซ้ำ)")
         print("====================================")
         return
 
-    print(f"🆕 พบโพสต์ใหม่ล่าสุดที่ยังไม่เคยส่ง! กำลังส่งให้ Groq AI แปลผล...")
-    print(f"📝 ตัวอย่างข้อความ: {target_post[:80]}...")
+    print(f"🆕 พบโพสต์ใหม่จริง! กำลังส่งให้ Groq AI สรุป...")
     
     prompt = f"""
     คุณคือผู้ช่วยสรุปข่าวสารเกม Hay Day สำหรับส่งเข้ากลุ่ม LINE ภาษาไทย
@@ -143,7 +145,7 @@ def main():
     send_message(message)
     state["last_fb_post"] = target_post_id
     save_state(state)
-    print("✅ ส่งข้อความเข้า LINE สำเร็จ!")
+    print("✅ ส่งข้อความเข้า LINE สำเร็จ และบันทึก ID ลง state.json เรียบร้อย!")
     print("====================================")
 
 if __name__ == "__main__":
