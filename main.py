@@ -3,10 +3,8 @@ import json
 from groq import Groq
 import requests
 from bs4 import BeautifulSoup
-import feedparser
 from line import send_message
 
-# ตั้งค่า Groq Client
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 client = Groq(api_key=GROQ_API_KEY)
 
@@ -38,59 +36,66 @@ def ask_groq(prompt):
         print(f"❌ Groq Error: {e}")
         return None
 
-def fetch_feed_data():
-    # รายชื่อแหล่งฟีดเรียงตามความเร็ว (RSSHub ก่อน ถ้าไม่ผ่านจะไป RSS.app)
-    feed_urls = [
-        "https://rsshub.app/facebook/page/haydayhome1",
-        "https://rss.app/feeds/1zNu9ZwSfalDdaUs.xml"
-    ]
+def fetch_facebook_mobile():
+    # ใช้ Mobile Basic User Agent เพื่อให้ Facebook ส่ง HTML แบบเรียบง่ายที่สุดมาให้
+    url = "https://mbasic.facebook.com/haydayhome1"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9"
+    }
     
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+    try:
+        print(f"📖 กำลังสแกนหน้าเพจโดยตรงผ่าน Mobile Mode...")
+        r = requests.get(url, headers=headers, timeout=15)
+        if r.status_code != 200:
+            print(f"⚠️ ไม่สามารถเข้าถึงหน้าเพจได้ Status: {r.status_code}")
+            return None, None
+            
+        soup = BeautifulSoup(r.text, 'html.parser')
+        
+        # ค้นหาโพสต์บน mbasic facebook
+        articles = soup.find_all('article') or soup.find_all('div', {'role': 'article'})
+        
+        for article in articles:
+            text = article.get_text().strip()
+            # ตัดข้อมูลสั้นหรือคำแนะนำตัวทั่วไปออก
+            if len(text) > 30 and "Welcome to Hay Day Home" not in text:
+                # สกัดเอาเฉพาะเนื้อหาหลัก
+                clean_text = " ".join(text.split())
+                print(f"✅ พบโพสต์ล่าสุด: {clean_text[:60]}...")
+                return clean_text, clean_text[:100]
 
-    for url in feed_urls:
-        print(f"📖 กำลังลองดึงข้อมูลจาก: {url}...")
-        try:
-            response = requests.get(url, headers=headers, timeout=12)
-            if response.status_code == 200:
-                feed = feedparser.parse(response.content)
-                if feed.entries:
-                    for entry in feed.entries:
-                        soup_content = BeautifulSoup(entry.get("summary", entry.get("description", "")), "html.parser")
-                        text_check = soup_content.get_text().strip()
-                        
-                        # ข้ามข้อมูลแนะนำตัวเพจ
-                        if "Welcome to Hay Day Home" in text_check or "Official Supercell Creator" in text_check:
-                            continue
-                        
-                        if len(text_check) > 5:
-                            unique_key = entry.get("id", entry.get("link", text_check[:100]))
-                            print("✅ ดึงข้อมูลสำเร็จ!")
-                            return text_check, unique_key
-        except Exception as e:
-            print(f"⚠️ ลองฟีดนี้ไม่สำเร็จ: {e}")
-
+    except Exception as e:
+        print(f"⚠️ เกิดข้อผิดพลาดในการดึงข้อมูล: {e}")
+        
     return None, None
 
-def check_facebook():
-    post_text, post_unique_key = fetch_feed_data()
-
+def main():
+    print("====================================")
+    print("🐔 Hay Day Bot (Mobile Scraper Mode)")
+    print("====================================")
+    
+    post_text, raw_key = fetch_facebook_mobile()
+    
     if not post_text:
-        print("⏭️ ไม่พบเนื้อหาโพสต์ใหม่จากทุกแหล่ง ข้ามรอบนี้")
-        return None, None
+        print("⏭️ ไม่พบเนื้อหาโพสต์ใหม่ ข้ามรอบนี้")
+        print("====================================")
+        return
 
-    post_id = str(hash(post_unique_key))
-
+    post_id = str(hash(raw_key))
     state = load_state()
+    
     if state.get("last_fb_post") == post_id:
-        print("⏭️ โพสต์ล่าสุดนี้เคยส่งเข้ากลุ่มไปแล้ว (ล็อกอยู่)")
-        return None, None
+        print("⏭️ โพสต์ล่าสุดนี้เคยส่งเข้ากลุ่มไปแล้ว (ซ้ำ)")
+        print("====================================")
+        return
 
-    print(f"🆕 พบโพสต์ใหม่! กำลังส่งให้ AI สรุป...")
+    print("🆕 พบโพสต์ใหม่! กำลังส่งให้ Groq AI แปลภาษา...")
     
     prompt = f"""
     คุณคือผู้ช่วยสรุปข่าวสารและกิจกรรมเกม Hay Day ภาษาไทย
     โปรดแปลและสรุปเนื้อหาจากโพสต์นี้ให้อ่านเข้าใจง่าย กระชับ และถูกต้อง:
-    "{post_text[:1000]}"
+    "{post_text[:1200]}"
     
     กำหนดรูปแบบผลลัพธ์ใน LINE:
     🌾 Hay Day Home (อัปเดตโพสต์ใหม่)
@@ -105,22 +110,11 @@ def check_facebook():
         summary = f"🌾 Hay Day Home (อัปเดตโพสต์ใหม่)\n📢 โพสต์ใหม่: {post_text[:200]}..."
 
     message = f"{summary}\n\n🤖 Powered by Hay Day AI News Bot"
-    return message, post_id
-
-def main():
-    print("====================================")
-    print("🐔 Hay Day Bot (Multi-Feed Fallback Mode)")
-    print("====================================")
     
-    fb_message, fb_id = check_facebook()
-    if fb_message:
-        send_message(fb_message)
-        state = load_state()
-        state["last_fb_post"] = fb_id
-        save_state(state)
-        print("✅ ส่งข้อความเข้า LINE สำเร็จ!")
-    else:
-        print("⏭️ จบกระบวนการ (ไม่มีโพสต์ใหม่)")
+    send_message(message)
+    state["last_fb_post"] = post_id
+    save_state(state)
+    print("✅ ส่งข้อความเข้า LINE สำเร็จ!")
     print("====================================")
 
 if __name__ == "__main__":
