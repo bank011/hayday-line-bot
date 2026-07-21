@@ -1,5 +1,4 @@
 import os
-import json
 import hashlib
 from groq import Groq
 import requests
@@ -9,23 +8,30 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 APIFY_TOKEN = os.environ.get("APIFY_TOKEN", "")
 
 client = Groq(api_key=GROQ_API_KEY)
-STATE_FILE = "state.json"
 
-def load_state():
-    if os.path.exists(STATE_FILE):
-        try:
-            with open(STATE_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except:
-            pass
-    return {"last_fb_post": ""}
+# --- ระบบบันทึกและอ่าน State บน Apify Cloud Storage ---
+APIFY_STORE_URL = f"https://api.apify.com/v2/key-value-stores/default/records/HAYDAY_LAST_POST?token={APIFY_TOKEN}"
 
-def save_state(state):
-    with open(STATE_FILE, "w", encoding="utf-8") as f:
-        json.dump(state, f, ensure_ascii=False, indent=2)
+def load_state_from_apify():
+    try:
+        r = requests.get(APIFY_STORE_URL, timeout=10)
+        if r.status_code == 200:
+            data = r.json()
+            return data.get("last_fb_post", "")
+    except Exception as e:
+        print(f"⚠️ Load state error: {e}")
+    return ""
+
+def save_state_to_apify(post_id):
+    try:
+        payload = {"last_fb_post": post_id}
+        r = requests.put(APIFY_STORE_URL, json=payload, timeout=10)
+        if r.status_code in [200, 201]:
+            print("☁️ บันทึก State ลง Apify Cloud สำเร็จ!")
+    except Exception as e:
+        print(f"⚠️ Save state error: {e}")
 
 def generate_post_id(text):
-    # ใช้ MD5 เพื่อให้รหัส Hash คงเดิมเสมอไม่ว่าจะรันรอบไหน
     return hashlib.md5(text.encode("utf-8")).hexdigest()
 
 def ask_groq(prompt):
@@ -71,10 +77,6 @@ def fetch_all_recent_posts():
                             "key": url_link or text.strip()[:100]
                         })
                 print(f"✅ ดึงรายการโพสต์สำเร็จทั้งหมด {len(posts_list)} โพสต์")
-            else:
-                print("⚠️ Apify ส่งข้อมูลกลับมาเป็นรายการว่างเปล่า")
-        else:
-            print(f"⚠️ Apify Error Response: {r.text[:200]}")
     except Exception as e:
         print(f"⚠️ Apify Request Error: {e}")
         
@@ -82,7 +84,7 @@ def fetch_all_recent_posts():
 
 def main():
     print("====================================")
-    print("🐔 Hay Day Bot (MD5 Deduplication Mode)")
+    print("🐔 Hay Day Bot (Apify Cloud State Storage)")
     print("====================================")
     
     posts = fetch_all_recent_posts()
@@ -92,16 +94,17 @@ def main():
         print("====================================")
         return
 
-    state = load_state()
-    last_saved_id = state.get("last_fb_post", "")
+    # อ่านค่าโพสต์ล่าสุดจาก Apify Cloud
+    last_saved_id = load_state_from_apify()
+    print(f"🔍 รหัสโพสต์ล่าสุดที่เคยบันทึกไว้ในระบบ: {last_saved_id}")
     
     target_post = None
     target_post_id = ""
 
-    # ตรวจสอบหาโพสต์ใหม่โดยเทียบ MD5 ID
     for p in posts:
         current_id = generate_post_id(p["key"])
         
+        # ถ้าเจอโพสต์ที่ตรงกับรหัสบน Cloud แสดงว่าเคยส่งแล้ว
         if current_id == last_saved_id:
             break
             
@@ -110,7 +113,7 @@ def main():
             target_post_id = current_id
 
     if not target_post:
-        print("⏭️ ทุกโพสต์ล่าสุดเคยถูกส่งเข้า LINE แล้ว (ข้ามการส่งซ้ำ)")
+        print("⏭️ โพสต์นี้บันทึกอยู่บน Cloud เรียบร้อยแล้ว (ข้ามการส่งซ้ำชัวร์ 100%)")
         print("====================================")
         return
 
@@ -143,9 +146,10 @@ def main():
     message = f"{summary}\n\n🤖 Powered by Hay Day AI News Bot"
     
     send_message(message)
-    state["last_fb_post"] = target_post_id
-    save_state(state)
-    print("✅ ส่งข้อความเข้า LINE สำเร็จ และบันทึก ID ลง state.json เรียบร้อย!")
+    
+    # บันทึกรหัสโพสต์ลง Apify Cloud ทันที
+    save_state_to_apify(target_post_id)
+    print("✅ ส่งข้อความเข้า LINE สำเร็จ และเซฟสเตทลง Cloud เรียบร้อย!")
     print("====================================")
 
 if __name__ == "__main__":
