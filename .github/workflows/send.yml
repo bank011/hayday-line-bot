@@ -34,6 +34,7 @@ jobs:
           LINE_GROUP_ID: ${{ secrets.LINE_GROUP_ID }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           MPW_API_KEY: ${{ secrets.MPW_API_KEY }}
+          APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
         run: |
           python main.py
 
