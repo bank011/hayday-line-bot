@@ -6,7 +6,7 @@ on:
     - cron: "*/30 * * * *"
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   bot:
@@ -15,8 +15,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4.2.2
-        with:
-          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v5.4.0
@@ -33,18 +31,6 @@ jobs:
           LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
           LINE_GROUP_ID: ${{ secrets.LINE_GROUP_ID }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          MPW_API_KEY: ${{ secrets.MPW_API_KEY }}
           APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
         run: |
           python main.py
-
-      - name: Commit state
-        run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "github-actions@github.com"
-
-          git add state.json
-
-          git diff --cached --quiet || git commit -m "Update last video"
-
-          git push
