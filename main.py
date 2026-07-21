@@ -25,8 +25,9 @@ def save_state(state):
 
 def ask_groq(prompt):
     try:
+        # ใช้โมเดล 70B เพื่อภาษาไทยที่เป๊ะ สละสลวย และไม่มีอักขระเพี้ยน
         completion = client.chat.completions.create(
-            model="llama-3.1-8b-instant",  
+            model="llama-3.3-70b-versatile",  
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
             max_tokens=1024
@@ -45,7 +46,7 @@ def fetch_all_recent_posts():
     url = f"https://api.apify.com/v2/acts/apify~facebook-posts-scraper/run-sync-get-dataset-items?token={APIFY_TOKEN}"
     payload = {
         "startUrls": [{"url": "https://www.facebook.com/haydayhome1"}],
-        "resultsLimit": 5  # ดึง 5 โพสต์ล่าสุดบนเพจมาตรวจสอบ
+        "resultsLimit": 5  # ดึง 5 โพสต์ล่าสุดมาสแกนหาโพสต์ใหม่
     }
 
     posts_list = []
@@ -77,7 +78,7 @@ def fetch_all_recent_posts():
 
 def main():
     print("====================================")
-    print("🐔 Hay Day Bot (Multi-Post Inspector Mode)")
+    print("🐔 Hay Day Bot (High-Quality Thai Translation)")
     print("====================================")
     
     posts = fetch_all_recent_posts()
@@ -97,11 +98,10 @@ def main():
     for p in posts:
         current_id = str(hash(p["key"]))
         
-        # ถ้าเจอโพสต์ที่ล็อกไว้ใน state แสดงว่าโพสต์นี้และหลังจากนี้เคยส่งแล้ว ให้หยุดเช็ค
+        # ถ้าเจอโพสต์ที่ล็อกไว้ใน state แสดงว่าเคยส่งแล้ว ให้หยุดเช็ค
         if current_id == last_saved_id:
             break
             
-        # เก็บโพสต์ใหม่ไว้เตรียมส่ง (ถ้ามีหลายโพสต์ใหม่ จะได้โพสต์ล่าสุดจริง)
         if not target_post:
             target_post = p["text"]
             target_post_id = current_id
@@ -115,16 +115,23 @@ def main():
     print(f"📝 ตัวอย่างข้อความ: {target_post[:80]}...")
     
     prompt = f"""
-    คุณคือผู้ช่วยสรุปข่าวสารและกิจกรรมเกม Hay Day ภาษาไทย
-    โปรดแปลและสรุปเนื้อหาจากโพสต์นี้ให้อ่านเข้าใจง่าย กระชับ และถูกต้อง:
+    คุณคือผู้ช่วยสรุปข่าวสารเกม Hay Day สำหรับส่งเข้ากลุ่ม LINE ภาษาไทย
+    หน้าที่ของคุณ: แปลและสรุปเนื้อหาด้านล่างนี้ให้เป็นภาษาไทยที่อ่านง่าย สละสลวย เข้าใจทันที (ห้ามแปลตรงตัวแบบภาษาอังกฤษ)
+
+    เนื้อหาต้นฉบับ:
     "{target_post[:1200]}"
-    
-    กำหนดรูปแบบผลลัพธ์ใน LINE:
+
+    ข้อกำหนดการตอบ:
+    1. ใช้ภาษาไทยที่เป็นธรรมชาติ สละสลวย อ่านแล้วเก็ททันที
+    2. คำศัพท์เกมให้ใช้ทับศัพท์ที่คนเล่นเข้าใจ เช่น บูสเตอร์ (Booster), เพชร (Diamond), อีเวนต์ (Event), เหรียญ (Gold)
+    3. ห้ามมีอักขระพิเศษ สระซ้อน หรือกล่องข้อความเพี้ยนๆ ปรากฏในข้อความ
+
+    ให้จัดรูปแบบผลลัพธ์ตามนี้เท่านั้น:
     🌾 Hay Day Home (อัปเดตโพสต์ใหม่)
     ----------------------------------
-    📢 ข่าวสาร/โพสต์: [สรุปหัวข้อหลักของโพสต์นี้เป็นภาษาไทย]
-    📝 เนื้อหาหลัก: [สรุปใจความสำคัญรายละเอียด 2-3 บรรทัด]
-    🎯 สิ่งที่ต้องรู้/แนะนำ: [สรุปทริคหรือสิ่งที่ผู้เล่นต้องทำจากโพสต์นี้]
+    📢 ข่าวสาร/โพสต์: [สรุปสั้นๆ ว่ามีกิจกรรมหรืออัปเดตอะไร]
+    📝 เนื้อหาหลัก: [อธิบายรายละเอียด 2-3 บรรทัดด้วยภาษาไทยที่สละสลวย]
+    🎯 สิ่งที่ต้องรู้/แนะนำ: [บอกทริคหรือสิ่งที่ผู้เล่นควรทำในเกม]
     """
     
     summary = ask_groq(prompt)
