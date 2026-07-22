@@ -6,7 +6,7 @@ on:
     - cron: "*/30 * * * *"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   bot:
@@ -15,6 +15,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4.2.2
+        with:
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v5.4.0
@@ -35,3 +37,14 @@ jobs:
           MPW_API_KEY: ${{ secrets.MPW_API_KEY }}
         run: |
           python main.py
+
+      - name: Commit history
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+
+          git add history.json
+
+          git diff --cached --quiet || git commit -m "Update post history"
+
+          git push
