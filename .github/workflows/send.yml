@@ -26,11 +26,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run Bot
+     - name: Run Bot
         env:
           LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
           LINE_GROUP_ID: ${{ secrets.LINE_GROUP_ID }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
+          MPW_API_KEY: ${{ secrets.MPW_API_KEY }}   # <--- เพิ่มบรรทัดนี้กลับเข้ามาครับ
         run: |
           python main.py
