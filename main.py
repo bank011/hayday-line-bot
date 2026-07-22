@@ -56,7 +56,8 @@ def fetch_all_recent_posts():
     url = f"https://api.apify.com/v2/acts/apify~facebook-posts-scraper/run-sync-get-dataset-items?token={APIFY_TOKEN}"
     payload = {
         "startUrls": [{"url": "https://www.facebook.com/haydayhome1"}],
-        "resultsLimit": 5
+        "resultsLimit": 5,
+        "maxRequestRetries": 3
     }
 
     posts_list = []
@@ -68,13 +69,27 @@ def fetch_all_recent_posts():
             data = r.json()
             if data and len(data) > 0:
                 for item in data:
-                    text = item.get("text", "") or item.get("caption", "") or item.get("message", "")
-                    url_link = item.get("url", "") or item.get("postUrl", "") or item.get("canonicalUrl", "")
+                    # ดึงข้อความ
+                    text = item.get("text", "") or item.get("caption", "") or item.get("message", "") or item.get("description", "")
+                    # ดึงลิงก์โพสต์
+                    post_url = item.get("url", "") or item.get("postUrl", "") or item.get("canonicalUrl", "")
+                    
+                    # ดึงลิงก์รูปภาพ (เช็คหลากฟิลด์ที่ Apify อาจส่งกลับมา)
+                    image_url = ""
+                    if item.get("media"):
+                        images = item.get("media", [])
+                        if isinstance(images, list) and len(images) > 0:
+                            image_url = images[0].get("url", "") or images[0].get("thumbnail", "")
+                    
+                    if not image_url:
+                        image_url = item.get("imageUrl", "") or item.get("topImage", "") or item.get("thumbnail", "")
                     
                     if text and len(text.strip()) > 10:
                         posts_list.append({
                             "text": text.strip(),
-                            "key": url_link or text.strip()[:100]
+                            "post_url": post_url,
+                            "image_url": image_url,
+                            "key": post_url or text.strip()[:100]
                         })
                 print(f"✅ ดึงรายการโพสต์สำเร็จทั้งหมด {len(posts_list)} โพสต์")
     except Exception as e:
@@ -84,7 +99,7 @@ def fetch_all_recent_posts():
 
 def main():
     print("====================================")
-    print("🐔 Hay Day Bot (Apify Cloud State Storage)")
+    print("🐔 Hay Day Bot (Image & Link Attachment)")
     print("====================================")
     
     posts = fetch_all_recent_posts()
@@ -94,7 +109,6 @@ def main():
         print("====================================")
         return
 
-    # อ่านค่าโพสต์ล่าสุดจาก Apify Cloud
     last_saved_id = load_state_from_apify()
     print(f"🔍 รหัสโพสต์ล่าสุดที่เคยบันทึกไว้ในระบบ: {last_saved_id}")
     
@@ -104,27 +118,30 @@ def main():
     for p in posts:
         current_id = generate_post_id(p["key"])
         
-        # ถ้าเจอโพสต์ที่ตรงกับรหัสบน Cloud แสดงว่าเคยส่งแล้ว
         if current_id == last_saved_id:
             break
             
         if not target_post:
-            target_post = p["text"]
+            target_post = p
             target_post_id = current_id
 
     if not target_post:
-        print("⏭️ โพสต์นี้บันทึกอยู่บน Cloud เรียบร้อยแล้ว (ข้ามการส่งซ้ำชัวร์ 100%)")
+        print("⏭️ โพสต์นี้บันทึกอยู่บน Cloud เรียบร้อยแล้ว (ข้ามการส่งซ้ำ)")
         print("====================================")
         return
 
     print(f"🆕 พบโพสต์ใหม่จริง! กำลังส่งให้ Groq AI สรุป...")
+    
+    post_text = target_post["text"]
+    post_url = target_post["post_url"]
+    image_url = target_post["image_url"]
     
     prompt = f"""
     คุณคือผู้ช่วยสรุปข่าวสารเกม Hay Day สำหรับส่งเข้ากลุ่ม LINE ภาษาไทย
     หน้าที่ของคุณ: แปลและสรุปเนื้อหาด้านล่างนี้ให้เป็นภาษาไทยที่อ่านง่าย สละสลวย เข้าใจทันที (ห้ามแปลตรงตัวแบบภาษาอังกฤษ)
 
     เนื้อหาต้นฉบับ:
-    "{target_post[:1200]}"
+    "{post_text[:1200]}"
 
     ข้อกำหนดการตอบ:
     1. ใช้ภาษาไทยที่เป็นธรรมชาติ สละสลวย อ่านแล้วเก็ททันที
@@ -141,15 +158,18 @@ def main():
     
     summary = ask_groq(prompt)
     if not summary:
-        summary = f"🌾 Hay Day Home (อัปเดตโพสต์ใหม่)\n📢 โพสต์ใหม่: {target_post[:200]}..."
+        summary = f"🌾 Hay Day Home (อัปเดตโพสต์ใหม่)\n📢 โพสต์ใหม่: {post_text[:200]}..."
 
+    # สร้างข้อความตบท้ายด้วยลิงก์โพสต์ (ถ้ามี)
     message = f"{summary}\n\n🤖 Powered by Hay Day AI News Bot"
+    if post_url:
+        message += f"\n🔗 ดูโพสต์ต้นฉบับ: {post_url}"
     
+    # ส่งข้อความ (ถ้ามีรูปภาพจะถูกแนบไปด้วยหากฟังก์ชัน send_message ใน line.py รองรับ หรือแสดงผลเป็นลิงก์)
     send_message(message)
     
-    # บันทึกรหัสโพสต์ลง Apify Cloud ทันที
     save_state_to_apify(target_post_id)
-    print("✅ ส่งข้อความเข้า LINE สำเร็จ และเซฟสเตทลง Cloud เรียบร้อย!")
+    print("✅ ส่งข้อความพร้อมลิงก์เข้า LINE สำเร็จ และเซฟสเตทลง Cloud เรียบร้อย!")
     print("====================================")
 
 if __name__ == "__main__":
