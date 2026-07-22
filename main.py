@@ -1,5 +1,6 @@
 import os
 import hashlib
+import re
 from groq import Groq
 import requests
 from line import send_message
@@ -9,32 +10,42 @@ APIFY_TOKEN = os.environ.get("APIFY_TOKEN", "")
 
 client = Groq(api_key=GROQ_API_KEY)
 
-# --- ระบบบันทึกและอ่าน State บน Apify Cloud Storage ---
-APIFY_STORE_URL = f"https://api.apify.com/v2/key-value-stores/default/records/HAYDAY_LAST_POST?token={APIFY_TOKEN}"
+# --- ระบบคลังเก็บประวัติโพสต์ย้อนหลังบน Apify Cloud (เก็บสูงสุด 50 โพสต์ล่าสุด) ---
+APIFY_STORE_URL = f"https://api.apify.com/v2/key-value-stores/default/records/HAYDAY_POSTS_HISTORY?token={APIFY_TOKEN}"
 
-def load_state_from_apify():
+def load_history_from_apify():
+    """ดึงประวัติโพสต์ทั้งหมดที่เคยส่งไปแล้ว"""
     try:
         r = requests.get(APIFY_STORE_URL, timeout=10)
         if r.status_code == 200:
             data = r.json()
-            return data.get("last_fb_post", "")
+            if isinstance(data, list):
+                return data
+            elif isinstance(data, dict):
+                return data.get("history", [])
     except Exception as e:
-        print(f"⚠️ Load state error: {e}")
-    return ""
+        print(f"⚠️ Load history error: {e}")
+    return []
 
-def save_state_to_apify(post_id):
+def save_history_to_apify(history_list):
+    """บันทึกประวัติโพสต์ลง Cloud (เก็บย้อนหลังสูงสุด 50 รายการ)"""
     try:
-        payload = {"last_fb_post": post_id}
+        # ตัดประวัติให้เหลือไม่เกิน 50 รายการล่าสุด
+        updated_history = history_list[-50:]
+        payload = {"history": updated_history}
         r = requests.put(APIFY_STORE_URL, json=payload, timeout=10)
         if r.status_code in [200, 201]:
-            print("☁️ บันทึก State ลง Apify Cloud สำเร็จ!")
+            print(f"☁️ บันทึกประวัติลง Cloud เรียบร้อย (รวมทั้งหมด {len(updated_history)} รายการ)")
     except Exception as e:
-        print(f"⚠️ Save state error: {e}")
+        print(f"⚠️ Save history error: {e}")
 
-def generate_post_id(text_content):
-    # ใช้เนื้อหาข้อความ (100 ตัวแรก) มาสร้าง Hash แทน URL เพื่อป้องกัน URL เปลี่ยนรูปแบบ
-    clean_text = text_content.strip()[:100]
-    return hashlib.md5(clean_text.encode("utf-8")).hexdigest()
+def generate_strict_post_id(text_content):
+    """ทำความสะอาดข้อความ ลบสัญลักษณ์/เว้นวรรคออก เหลือเฉพาะตัวอักษรและตัวเลข แล้ว Hash"""
+    # ลบอักขระพิเศษ เว้นวรรค และ Emoji ออก ให้เหลือแค่ตัวอักษรภาษาอังกฤษ ภาษาไทย และตัวเลข
+    clean_text = re.sub(r'[^a-zA-Z0-9ก-๙]', '', text_content)
+    # ตัดเอา 60 ตัวอักษรแรกมาทำ MD5
+    short_text = clean_text[:60].lower()
+    return hashlib.md5(short_text.encode("utf-8")).hexdigest()
 
 def ask_groq(prompt):
     try:
@@ -87,7 +98,7 @@ def fetch_all_recent_posts():
 
 def main():
     print("====================================")
-    print("🐔 Hay Day Bot (Content-Based Deduplication)")
+    print("🐔 Hay Day Bot (Strict History Deduplication)")
     print("====================================")
     
     posts = fetch_all_recent_posts()
@@ -97,29 +108,33 @@ def main():
         print("====================================")
         return
 
-    last_saved_id = load_state_from_apify()
-    print(f"🔍 รหัสข้อความโพสต์ล่าสุดในระบบ: {last_saved_id}")
+    # ดึงประวัติรหัสโพสต์ทั้งหมดที่เคยส่งไปแล้วจาก Cloud
+    history = load_history_from_apify()
+    print(f"🔍 จำนวนประวัติโพสต์ที่เคยบันทึกไว้ในระบบ: {len(history)} รายการ")
     
     target_post = None
     target_post_id = ""
 
+    # วนลูปเช็คโพสต์ทั้งหมด
     for p in posts:
-        # สร้าง ID จากข้อความโพสต์โดยตรง
-        current_id = generate_post_id(p["text"])
+        current_id = generate_strict_post_id(p["text"])
         
-        if current_id == last_saved_id:
-            break
+        # เช็คว่ารหัสนี้เคยอยู่ในประวัติหรือไม่
+        if current_id in history:
+            print(f"🛑 โพสต์นี้อยู่ในประวัติแล้ว (เคยส่งแล้ว) -> ข้าม: {p['text'][:30]}...")
+            continue
             
+        # ถ้าเจอบรรทัดที่ยังไม่เคยอยู่ในประวัติ ให้เลือกโพสต์นี้เป็นเป้าหมาย
         if not target_post:
             target_post = p
             target_post_id = current_id
 
     if not target_post:
-        print("⏭️ โพสต์เนื้อหานี้บันทึกอยู่บน Cloud เรียบร้อยแล้ว (ล็อกการส่งซ้ำสนิท)")
+        print("⏭️ ทุกโพสต์ใน 5 รายการล่าสุด ถูกบันทึกในประวัติหมดแล้ว (ข้ามการส่งซ้ำเด็ดขาด 100%)")
         print("====================================")
         return
 
-    print(f"🆕 พบโพสต์ที่มีเนื้อหาใหม่จริงๆ! กำลังส่งให้ Groq AI สรุป...")
+    print(f"🆕 พบโพสต์ใหม่จริงๆ ที่ไม่เคยส่งมาก่อน! กำลังส่งให้ Groq AI สรุป...")
     
     post_text = target_post["text"]
     post_url = target_post["post_url"]
@@ -154,9 +169,10 @@ def main():
     
     send_message(message)
     
-    # บันทึก Hash ของเนื้อหาข้อความลง Cloud
-    save_state_to_apify(target_post_id)
-    print("✅ ส่งข้อความเข้า LINE สำเร็จ และบันทึกรหัสเนื้อหาลง Cloud เรียบร้อย!")
+    # เพิ่มรหัสโพสต์ใหม่ลงในประวัติ แล้วเซฟกลับลง Cloud
+    history.append(target_post_id)
+    save_history_to_apify(history)
+    print("✅ ส่งข้อความเข้า LINE สำเร็จ และบันทึกรหัสลงคลังประวัติเรียบร้อย!")
     print("====================================")
 
 if __name__ == "__main__":
